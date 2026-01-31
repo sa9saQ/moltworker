@@ -27,3 +27,23 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Wait for deployment propagation
+        run: sleep 10
+
+      - name: Warmup container (start Discord bot)
+        run: |
+          echo "Warming up MoltWorker container..."
+          for i in 1 2 3; do
+            response=$(curl -s -w "%{http_code}" -o /dev/null "https://moltbot-sandbox.sa9saq.workers.dev/sandbox-health" || true)
+            echo "Attempt $i: HTTP $response"
+            if [ "$response" = "200" ]; then
+              echo "✅ Container is ready"
+              break
+            fi
+            sleep 5
+          done
+
+          # Also hit the API status to fully initialize the gateway
+          curl -s "https://moltbot-sandbox.sa9saq.workers.dev/api/status" || true
+          echo "🚀 Warmup complete"
