@@ -197,7 +197,14 @@ if (process.env.DISCORD_BOT_TOKEN) {
     config.channels.discord.token = process.env.DISCORD_BOT_TOKEN;
     config.channels.discord.enabled = true;
     config.channels.discord.dm = config.channels.discord.dm || {};
-    config.channels.discord.dm.policy = process.env.DISCORD_DM_POLICY || 'pairing';
+    const dmPolicy = process.env.DISCORD_DM_POLICY || 'pairing';
+    config.channels.discord.dm.policy = dmPolicy;
+    // When policy is 'open', allowFrom must include '*'
+    if (dmPolicy === 'open') {
+        config.channels.discord.dm.allowFrom = ['*'];
+    }
+    // Allow all guilds by default (otherwise requires explicit allowlist)
+    config.channels.discord.groupPolicy = 'open';
 }
 
 // Slack configuration
@@ -245,7 +252,7 @@ if (isOpenAI) {
         api: 'anthropic-messages',
         models: [
             { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
-            { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
+            { id: 'claude-sonnet-4-5-20250514', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
             { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', contextWindow: 200000 },
         ]
     };
@@ -257,7 +264,7 @@ if (isOpenAI) {
     // Add models to the allowlist so they appear in /models
     config.agents.defaults.models = config.agents.defaults.models || {};
     config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
-    config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
+    config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250514'] = { alias: 'Sonnet 4.5' };
     config.agents.defaults.models['anthropic/claude-haiku-4-5-20251001'] = { alias: 'Haiku 4.5' };
     config.agents.defaults.model.primary = 'anthropic/claude-opus-4-5-20251101';
 } else {
