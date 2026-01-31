@@ -36,3 +36,9 @@ Thumbs.db
 
 # Docker build artifacts
 *.tar
+
+# Credentials (never commit)
+credentials/
+
+# Credentials (never commit)
+credentials/
