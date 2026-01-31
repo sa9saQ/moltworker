@@ -54,11 +54,26 @@ English: implement, develop, build system, automation tool,
 
 1. **Analyze** the user's request
 2. **Check** for Opus trigger keywords or complexity indicators
-3. **If Opus needed**:
+3. **If unclear, self-evaluate complexity (0-10 scale)**:
+   - Consider: Does this require precise code generation? Multi-step reasoning? System design?
+   - Score 7+ → Use Opus
+   - Score 6 or below → Use Sonnet
+4. **If Opus needed**:
    - Announce: "このタスクは複雑なので、高品質モデル(Opus 4.5)に切り替えます。"
    - Execute: `/model anthropic/claude-opus-4-5-20251101`
    - Then proceed with the task
-4. **If Sonnet sufficient**: Proceed directly without switching
+5. **If Sonnet sufficient**: Proceed directly without switching
+
+## Self-Evaluation Criteria (When Keywords Don't Match)
+
+Ask yourself these questions:
+- [ ] Does this require writing >50 lines of code?
+- [ ] Does this involve system architecture or design decisions?
+- [ ] Does this require debugging complex logic?
+- [ ] Does this need multi-step reasoning with dependencies?
+- [ ] Is accuracy critical (financial, security, legal)?
+
+**2つ以上 Yes → Opus を使用**
 
 ## Cost Tracking (Optional)
 
