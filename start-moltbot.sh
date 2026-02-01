@@ -1,6 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
-# Version: 2026-02-01-v36-discord-token-refresh
+# Version: 2026-02-01-v38-debug-env-vars
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
@@ -130,6 +130,15 @@ EOFCONFIG
 else
     echo "Using existing config"
 fi
+
+# ============================================================
+# CHECK CRITICAL ENVIRONMENT VARIABLES
+# ============================================================
+echo "Checking environment variables..."
+echo "ANTHROPIC_API_KEY set: $([ -n \"$ANTHROPIC_API_KEY\" ] && echo 'YES (len='${#ANTHROPIC_API_KEY}')' || echo 'NO')"
+echo "OPENAI_API_KEY set: $([ -n \"$OPENAI_API_KEY\" ] && echo 'YES' || echo 'NO')"
+echo "DISCORD_BOT_TOKEN set: $([ -n \"$DISCORD_BOT_TOKEN\" ] && echo 'YES' || echo 'NO')"
+echo "CLAWDBOT_GATEWAY_TOKEN set: $([ -n \"$CLAWDBOT_GATEWAY_TOKEN\" ] && echo 'YES' || echo 'NO')"
 
 # ============================================================
 # UPDATE CONFIG FROM ENVIRONMENT VARIABLES
