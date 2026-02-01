@@ -206,15 +206,21 @@ if (process.env.DISCORD_BOT_TOKEN) {
     // Allow all guilds by default (otherwise requires explicit allowlist)
     config.channels.discord.groupPolicy = 'open';
 
-    // Watch specific channels (respond to all messages without mention)
-    // Set DISCORD_WATCH_CHANNELS as comma-separated channel IDs
-    if (process.env.DISCORD_WATCH_CHANNELS) {
-        const watchChannels = process.env.DISCORD_WATCH_CHANNELS.split(',').map(id => id.trim()).filter(Boolean);
-        if (watchChannels.length > 0) {
-            config.channels.discord.watchChannels = watchChannels;
-            console.log('Discord watch channels:', watchChannels);
-        }
-    }
+    // NOTE: watchChannels is not supported by clawdbot CLI
+    // If needed in future, check upstream for proper config key
+}
+
+// Browser configuration for Cloudflare Browser Rendering
+// This allows MoltWorker to use browser automation via CDP WebSocket
+if (process.env.CDP_SECRET && process.env.WORKER_URL) {
+    config.browser = config.browser || {};
+    config.browser.profiles = config.browser.profiles || {};
+    config.browser.profiles.cloudflare = {
+        cdpUrl: process.env.WORKER_URL.replace(/\/$/, '') + '/cdp?secret=' + encodeURIComponent(process.env.CDP_SECRET)
+    };
+    config.browser.defaultProfile = 'cloudflare';
+    console.log('Browser profile configured for Cloudflare Browser Rendering');
+    console.log('CDP URL:', config.browser.profiles.cloudflare.cdpUrl.replace(/secret=.*/, 'secret=***'));
 }
 
 // Slack configuration
@@ -262,8 +268,8 @@ if (isOpenAI) {
         api: 'anthropic-messages',
         models: [
             { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
-            { id: 'claude-sonnet-4-5-20250514', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
-            { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', contextWindow: 200000 },
+            { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
+            { id: 'claude-3-haiku-20240307', name: 'Claude Haiku', contextWindow: 200000 },
         ]
     };
     // Include API key in provider config if set (required when using custom baseUrl)
@@ -274,13 +280,13 @@ if (isOpenAI) {
     // Add models to the allowlist so they appear in /models
     config.agents.defaults.models = config.agents.defaults.models || {};
     config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
-    config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250514'] = { alias: 'Sonnet 4.5' };
-    config.agents.defaults.models['anthropic/claude-haiku-4-5-20251001'] = { alias: 'Haiku 4.5' };
+    config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
+    config.agents.defaults.models['anthropic/claude-3-haiku-20240307'] = { alias: 'Haiku' };
     // Default to Sonnet for cost efficiency (model-router skill will switch to Opus when needed)
-    config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5-20250514';
+    config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5-20250929';
 } else {
     // Default to Sonnet without custom base URL (model-router skill switches to Opus when needed)
-    config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5';
+    config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5-20250929';
 }
 
 // Write updated config
