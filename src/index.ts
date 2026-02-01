@@ -383,7 +383,8 @@ app.all('*', async (c) => {
 
 /**
  * Scheduled handler for cron triggers.
- * Syncs moltbot config/state from container to R2 for persistence.
+ * 1. Ensures gateway is running (keeps Discord bot online)
+ * 2. Syncs moltbot config/state from container to R2 for persistence.
  */
 async function scheduled(
   _event: ScheduledEvent,
@@ -393,9 +394,19 @@ async function scheduled(
   const options = buildSandboxOptions(env);
   const sandbox = getSandbox(env.Sandbox, 'moltbot', options);
 
+  // First, ensure gateway is running to keep Discord bot online
+  console.log('[cron] Ensuring gateway is running...');
+  try {
+    await ensureMoltbotGateway(sandbox, env);
+    console.log('[cron] Gateway is running');
+  } catch (error) {
+    console.error('[cron] Failed to start gateway:', error);
+  }
+
+  // Then sync to R2
   console.log('[cron] Starting backup sync to R2...');
   const result = await syncToR2(sandbox, env);
-  
+
   if (result.success) {
     console.log('[cron] Backup sync completed successfully at', result.lastSync);
   } else {
