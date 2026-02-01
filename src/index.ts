@@ -148,31 +148,41 @@ app.route('/browser', browserApi);
 // PROTECTED ROUTES: Cloudflare Access authentication required
 // =============================================================================
 
-// Middleware: Validate required environment variables (skip in dev mode and for debug routes)
+// Middleware: Validate required environment variables (skip in dev mode and for certain routes)
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
-  
-  // Skip validation for debug routes (they have their own enable check)
-  if (url.pathname.startsWith('/debug')) {
+
+  // Skip validation for routes that don't need full env validation
+  const skipPaths = [
+    '/debug',       // Has own enable check
+    '/browser',     // Only needs CDP_SECRET and BROWSER
+    '/cdp',         // Only needs CDP_SECRET
+    '/sandbox-health',
+    '/api/env-check',
+    '/api/browser-check',
+    '/api/browser-test',
+  ];
+
+  if (skipPaths.some(path => url.pathname.startsWith(path))) {
     return next();
   }
-  
+
   // Skip validation in dev mode
   if (c.env.DEV_MODE === 'true') {
     return next();
   }
-  
+
   const missingVars = validateRequiredEnv(c.env);
   if (missingVars.length > 0) {
     console.error('[CONFIG] Missing required environment variables:', missingVars.join(', '));
-    
+
     const acceptsHtml = c.req.header('Accept')?.includes('text/html');
     if (acceptsHtml) {
       // Return a user-friendly HTML error page
       const html = configErrorHtml.replace('{{MISSING_VARS}}', missingVars.join(', '));
       return c.html(html, 503);
     }
-    
+
     // Return JSON error for API requests
     return c.json({
       error: 'Configuration error',
@@ -181,19 +191,42 @@ app.use('*', async (c, next) => {
       hint: 'Set these using: wrangler secret put <VARIABLE_NAME>',
     }, 503);
   }
-  
+
   return next();
 });
 
 // Middleware: Cloudflare Access authentication for protected routes
+// Skip for routes that use their own authentication (CDP secret)
 app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+
+  // Skip CF Access for routes with their own authentication
+  const skipPaths = [
+    '/browser',     // Uses CDP_SECRET
+    '/cdp',         // Uses CDP_SECRET
+    '/sandbox-health',
+    '/logo.png',
+    '/logo-small.png',
+    '/api/status',
+    '/api/boot',
+    '/api/env-check',
+    '/api/browser-check',
+    '/api/browser-test',
+    '/api/logs',
+    '/_admin/assets',
+  ];
+
+  if (skipPaths.some(path => url.pathname.startsWith(path))) {
+    return next();
+  }
+
   // Determine response type based on Accept header
   const acceptsHtml = c.req.header('Accept')?.includes('text/html');
-  const middleware = createAccessMiddleware({ 
+  const middleware = createAccessMiddleware({
     type: acceptsHtml ? 'html' : 'json',
-    redirectOnMissing: acceptsHtml 
+    redirectOnMissing: acceptsHtml
   });
-  
+
   return middleware(c, next);
 });
 
