@@ -1,11 +1,38 @@
 ---
 name: x-browser
-description: Post to X (Twitter) using browser automation. Supports tweets, replies, threads, and media uploads without API costs.
+description: Post to X (Twitter) using HTTP Browser API. Supports tweets, replies, threads, and media uploads without API costs.
 ---
 
 # X(Twitter) ブラウザ自動化スキル
 
-X（旧Twitter）へのブラウザ自動化投稿スキル。API料金を回避しながら全機能を利用。
+X（旧Twitter）へのブラウザ自動化投稿スキル。HTTP Browser APIを使用。
+
+## クイックスタート
+
+### 基本投稿（HTTP API）
+```bash
+curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://x.com/compose/tweet",
+    "actions": [
+      {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
+      {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容をここに"},
+      {"type": "wait", "ms": 1000},
+      {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
+      {"type": "wait", "ms": 3000},
+      {"type": "screenshot"}
+    ]
+  }'
+```
+
+### 環境変数
+```bash
+export MOLTBOT_URL="https://your-worker.workers.dev"
+export CDP_SECRET="your-secret"
+```
+
+---
 
 ## なぜブラウザ自動化？
 
@@ -18,13 +45,14 @@ API制限:
 └── 頻繁な仕様変更
 ```
 
-### ブラウザ自動化の利点
+### HTTP Browser APIの利点
 ```
 メリット:
 ├── 完全無料
 ├── 全機能利用可能
 ├── APIの仕様変更に依存しない
-└── 人間と同じ操作
+├── 人間と同じ操作
+└── WebSocket不要（HTTP only）
 
 リスク:
 ├── UIの変更で壊れる可能性
@@ -34,22 +62,117 @@ API制限:
 
 ---
 
+## 投稿パターン（HTTP API）
+
+### 1. テキスト投稿
+```json
+{
+  "url": "https://x.com/compose/tweet",
+  "actions": [
+    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
+    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容"},
+    {"type": "wait", "ms": 1000},
+    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
+    {"type": "wait", "ms": 3000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+### 2. スレッド投稿
+```json
+{
+  "url": "https://x.com/compose/tweet",
+  "actions": [
+    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
+    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "スレッド1つ目 🧵"},
+    {"type": "click", "selector": "[data-testid=\"addButton\"]"},
+    {"type": "wait", "ms": 500},
+    {"type": "type", "selector": "[data-testid=\"tweetTextarea_1\"]", "text": "スレッド2つ目"},
+    {"type": "click", "selector": "[data-testid=\"addButton\"]"},
+    {"type": "wait", "ms": 500},
+    {"type": "type", "selector": "[data-testid=\"tweetTextarea_2\"]", "text": "スレッド3つ目（完）"},
+    {"type": "wait", "ms": 1000},
+    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
+    {"type": "wait", "ms": 5000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+### 3. ホーム画面から投稿
+```json
+{
+  "url": "https://x.com/home",
+  "actions": [
+    {"type": "waitForSelector", "selector": "[data-testid=\"SideNav_NewTweet_Button\"]"},
+    {"type": "click", "selector": "[data-testid=\"SideNav_NewTweet_Button\"]"},
+    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
+    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容"},
+    {"type": "wait", "ms": 1000},
+    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
+    {"type": "wait", "ms": 3000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+---
+
+## セレクタ一覧（2026年版）
+
+```javascript
+const SELECTORS = {
+  // 投稿関連
+  composeButton: '[data-testid="SideNav_NewTweet_Button"]',
+  tweetTextArea: '[data-testid="tweetTextarea_0"]',
+  tweetTextArea2: '[data-testid="tweetTextarea_1"]',
+  postButton: '[data-testid="tweetButton"]',
+
+  // スレッド
+  addTweetButton: '[data-testid="addButton"]',
+
+  // メディア
+  imageUpload: '[data-testid="fileInput"]',
+
+  // リプライ
+  replyButton: '[data-testid="reply"]',
+
+  // 確認
+  tweetPosted: '[data-testid="tweet"]',
+};
+```
+
+---
+
 ## セットアップ
 
 ### 必要なもの
 ```
 1. X アカウント（ログイン済み）
-2. cloudflare-browser MCP サーバー
-3. セッション維持用 Cookie
+2. MOLTBOT_URL と CDP_SECRET
+3. 初回は手動ログインが必要
 ```
 
-### ログインフロー
-```javascript
-1. x.com にアクセス
-2. 手動でログイン（初回のみ）
-3. Cookie を保存
-4. 以降は Cookie で自動認証
+### ログインフロー（sequence API）
+```json
+{
+  "url": "https://x.com/login",
+  "actions": [
+    {"type": "waitForSelector", "selector": "input[autocomplete=\"username\"]"},
+    {"type": "type", "selector": "input[autocomplete=\"username\"]", "text": "ユーザー名"},
+    {"type": "click", "selector": "[role=\"button\"]:has-text(\"Next\")"},
+    {"type": "wait", "ms": 2000},
+    {"type": "waitForSelector", "selector": "input[type=\"password\"]"},
+    {"type": "type", "selector": "input[type=\"password\"]", "text": "パスワード"},
+    {"type": "click", "selector": "[data-testid=\"LoginForm_Login_Button\"]"},
+    {"type": "wait", "ms": 5000},
+    {"type": "screenshot"}
+  ]
+}
 ```
+
+**注意**: 2FA有効時は手動対応が必要
 
 ---
 

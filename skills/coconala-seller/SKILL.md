@@ -1,11 +1,109 @@
 ---
 name: coconala-seller
-description: Automate Coconala sales - product listing, customer communication, delivery, and sales tracking. Uses browser automation for all operations.
+description: Automate Coconala sales - product listing, customer communication, delivery, and sales tracking. Uses HTTP Browser API for all operations.
 ---
 
 # ココナラ自動販売スキル
 
-ココナラでの商品販売を自動化するスキル。出品、顧客対応、納品、売上管理を行う。
+ココナラでの商品販売を自動化するスキル。HTTP Browser APIを使用。
+
+## クイックスタート
+
+### 環境変数
+```bash
+export MOLTBOT_URL="https://your-worker.workers.dev"
+export CDP_SECRET="your-secret"
+```
+
+### ログイン（HTTP API）
+```bash
+curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://coconala.com/login",
+    "actions": [
+      {"type": "waitForSelector", "selector": "input[name=\"email\"]"},
+      {"type": "type", "selector": "input[name=\"email\"]", "text": "メールアドレス"},
+      {"type": "type", "selector": "input[name=\"password\"]", "text": "パスワード"},
+      {"type": "click", "selector": "button[type=\"submit\"]"},
+      {"type": "wait", "ms": 5000},
+      {"type": "screenshot"}
+    ]
+  }'
+```
+
+### メッセージ確認（HTTP API）
+```bash
+curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://coconala.com/mypage/talk_rooms",
+    "actions": [
+      {"type": "wait", "ms": 3000},
+      {"type": "screenshot"},
+      {"type": "execute", "script": "() => Array.from(document.querySelectorAll(\".talk-room-item\")).map(el => el.textContent)"}
+    ]
+  }'
+```
+
+---
+
+## HTTP API操作パターン
+
+### 1. ログイン
+```json
+{
+  "url": "https://coconala.com/login",
+  "actions": [
+    {"type": "waitForSelector", "selector": "input[name=\"email\"]"},
+    {"type": "type", "selector": "input[name=\"email\"]", "text": "メールアドレス"},
+    {"type": "type", "selector": "input[name=\"password\"]", "text": "パスワード"},
+    {"type": "click", "selector": "button[type=\"submit\"]"},
+    {"type": "wait", "ms": 5000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+### 2. トークルーム確認
+```json
+{
+  "url": "https://coconala.com/mypage/talk_rooms",
+  "actions": [
+    {"type": "wait", "ms": 3000},
+    {"type": "screenshot"},
+    {"type": "execute", "script": "() => document.body.innerText"}
+  ]
+}
+```
+
+### 3. メッセージ送信
+```json
+{
+  "url": "https://coconala.com/mypage/talk_rooms/12345",
+  "actions": [
+    {"type": "waitForSelector", "selector": "textarea"},
+    {"type": "type", "selector": "textarea", "text": "メッセージ内容"},
+    {"type": "click", "selector": "button[type=\"submit\"]"},
+    {"type": "wait", "ms": 2000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+### 4. 売上確認
+```json
+{
+  "url": "https://coconala.com/mypage/sales",
+  "actions": [
+    {"type": "wait", "ms": 3000},
+    {"type": "screenshot"},
+    {"type": "execute", "script": "() => document.querySelector('.total-sales')?.textContent"}
+  ]
+}
+```
+
+---
 
 ## 機能一覧
 
@@ -17,7 +115,7 @@ description: Automate Coconala sales - product listing, customer communication, 
 ├── 価格設定（競合分析）
 ├── カテゴリ選択
 ├── サムネイル画像準備（Nano Banana Pro連携）
-└── 出品実行（ブラウザ操作）
+└── 出品実行（HTTP Browser API）
 ```
 
 ### 2. 顧客対応

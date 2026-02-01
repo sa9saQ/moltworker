@@ -1,15 +1,115 @@
 ---
 name: threads-poster
-description: Post content to Threads using browser automation or API. Supports text, images, and scheduled posts for engagement optimization.
+description: Post content to Threads using HTTP Browser API. Supports text, images, and scheduled posts for engagement optimization.
 ---
 
 # Threads 投稿スキル
 
-Threads（Meta）への自動投稿を行うスキル。ブラウザ自動化またはAPI経由で対応。
+Threads（Meta）への自動投稿を行うスキル。HTTP Browser APIを使用。
 
-## 投稿方法
+## クイックスタート
 
-### 方法1: Threads API（審査通過後）
+### 基本投稿（HTTP API）
+```bash
+curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://threads.net",
+    "actions": [
+      {"type": "waitForSelector", "selector": "[aria-label=\"Create\"]"},
+      {"type": "click", "selector": "[aria-label=\"Create\"]"},
+      {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
+      {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容をここに"},
+      {"type": "wait", "ms": 1000},
+      {"type": "click", "selector": "[data-testid=\"post-button\"]"},
+      {"type": "wait", "ms": 3000},
+      {"type": "screenshot"}
+    ]
+  }'
+```
+
+### 環境変数
+```bash
+export MOLTBOT_URL="https://your-worker.workers.dev"
+export CDP_SECRET="your-secret"
+```
+
+---
+
+## 投稿パターン（HTTP API）
+
+### 1. テキスト投稿
+```json
+{
+  "url": "https://threads.net",
+  "actions": [
+    {"type": "waitForSelector", "selector": "[aria-label=\"Create\"]"},
+    {"type": "click", "selector": "[aria-label=\"Create\"]"},
+    {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
+    {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容"},
+    {"type": "wait", "ms": 1000},
+    {"type": "click", "selector": "[data-testid=\"post-button\"]"},
+    {"type": "wait", "ms": 3000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+### 2. プロフィールから投稿
+```json
+{
+  "url": "https://threads.net/@yourusername",
+  "actions": [
+    {"type": "click", "selector": "[aria-label=\"Create\"]"},
+    {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
+    {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容"},
+    {"type": "wait", "ms": 1000},
+    {"type": "click", "selector": "[data-testid=\"post-button\"]"},
+    {"type": "wait", "ms": 3000},
+    {"type": "screenshot"}
+  ]
+}
+```
+
+---
+
+## セレクタ一覧（2026年版）
+
+```javascript
+const SELECTORS = {
+  // 投稿関連
+  createButton: '[aria-label="Create"]',
+  newPostButton: '[aria-label="New post"]',
+  textArea: '[data-contents="true"]',
+  postButton: '[data-testid="post-button"]',
+
+  // メディア
+  imageUpload: 'input[type="file"]',
+
+  // その他
+  closeModal: '[aria-label="Close"]',
+};
+```
+
+---
+
+## 投稿方法の比較
+
+### 方法1: HTTP Browser API（推奨・即時開始可能）
+```
+利点:
+├── 審査不要、即日開始
+├── 全機能利用可能
+├── WebSocket不要（HTTP only）
+└── 柔軟な操作
+
+注意点:
+├── UIの変更に弱い
+├── CAPTCHAリスク
+└── レート制限に注意
+```
+
+### 方法2: Threads API（審査通過後）
 ```
 利点:
 ├── 安定した動作
@@ -22,49 +122,26 @@ Threads（Meta）への自動投稿を行うスキル。ブラウザ自動化ま
 └── 機能制限あり
 ```
 
-### 方法2: ブラウザ自動化（推奨・即時開始可能）
-```
-利点:
-├── 審査不要、即日開始
-├── 全機能利用可能
-└── 柔軟な操作
-
-注意点:
-├── UIの変更に弱い
-├── CAPTCHAリスク
-└── レート制限に注意
-```
-
 ---
 
-## ブラウザ自動化フロー
+## ログインフロー（HTTP API）
 
-### ログイン
-```
-1. threads.net にアクセス
-2. Instagram連携でログイン
-3. セッション維持（Cookie保存）
-```
-
-### 投稿作成
-```javascript
-// 投稿フロー
-1. 「+」ボタンをクリック
-2. テキストエリアに入力
-3. 画像があれば添付
-4. 「投稿」ボタンをクリック
-5. 投稿完了を確認
+### Instagram連携ログイン
+```json
+{
+  "url": "https://threads.net/login",
+  "actions": [
+    {"type": "waitForSelector", "selector": "input[name=\"username\"]"},
+    {"type": "type", "selector": "input[name=\"username\"]", "text": "ユーザー名"},
+    {"type": "type", "selector": "input[name=\"password\"]", "text": "パスワード"},
+    {"type": "click", "selector": "button[type=\"submit\"]"},
+    {"type": "wait", "ms": 5000},
+    {"type": "screenshot"}
+  ]
+}
 ```
 
-### セレクタ（要定期更新）
-```javascript
-const SELECTORS = {
-  newPostButton: '[aria-label="New post"]',
-  textArea: '[data-contents="true"]',
-  postButton: '[data-testid="post-button"]',
-  imageUpload: 'input[type="file"]',
-};
-```
+**注意**: 2FA有効時は手動対応が必要
 
 ---
 
