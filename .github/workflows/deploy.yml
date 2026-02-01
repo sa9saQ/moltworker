@@ -34,16 +34,24 @@ jobs:
       - name: Warmup container (start Discord bot)
         run: |
           echo "Warming up MoltWorker container..."
-          for i in 1 2 3; do
-            response=$(curl -s -w "%{http_code}" -o /dev/null "https://moltbot-sandbox.sa9saq.workers.dev/sandbox-health" || true)
-            echo "Attempt $i: HTTP $response"
-            if [ "$response" = "200" ]; then
-              echo "✅ Container is ready"
+          WORKER_URL="https://moltbot-sandbox.yizhix797.workers.dev"
+
+          # Hit the root URL to trigger gateway startup (requires browser-like request)
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i: Starting gateway..."
+            curl -s -H "Accept: text/html" "${WORKER_URL}/" > /dev/null || true
+            sleep 10
+
+            # Check if gateway is running
+            status=$(curl -s "${WORKER_URL}/api/status" | grep -o '"ok":true' || echo "not_ready")
+            if [ "$status" = '"ok":true' ]; then
+              echo "✅ Gateway is running! Discord bot should be online."
               break
             fi
-            sleep 5
+            echo "Gateway not ready yet, waiting..."
           done
 
-          # Also hit the API status to fully initialize the gateway
-          curl -s "https://moltbot-sandbox.sa9saq.workers.dev/api/status" || true
+          # Final status check
+          curl -s "${WORKER_URL}/api/status"
+          echo ""
           echo "🚀 Warmup complete"
