@@ -1,6 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
-# Version: 2026-02-01-v38-debug-env-vars
+# Version: 2026-02-01-v39-force-rebuild
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables

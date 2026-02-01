@@ -89,6 +89,20 @@ publicRoutes.post('/api/boot', async (c) => {
   }
 });
 
+// GET /api/env-check - Check if critical env vars are set (not their values)
+publicRoutes.get('/api/env-check', (c) => {
+  const env = c.env;
+  return c.json({
+    ANTHROPIC_API_KEY: !!env.ANTHROPIC_API_KEY,
+    OPENAI_API_KEY: !!env.OPENAI_API_KEY,
+    AI_GATEWAY_API_KEY: !!env.AI_GATEWAY_API_KEY,
+    AI_GATEWAY_BASE_URL: !!env.AI_GATEWAY_BASE_URL,
+    ANTHROPIC_BASE_URL: !!env.ANTHROPIC_BASE_URL,
+    DISCORD_BOT_TOKEN: !!env.DISCORD_BOT_TOKEN,
+    MOLTBOT_GATEWAY_TOKEN: !!env.MOLTBOT_GATEWAY_TOKEN,
+  });
+});
+
 // GET /api/logs - Get recent gateway logs (for debugging)
 publicRoutes.get('/api/logs', async (c) => {
   const sandbox = c.get('sandbox');
