@@ -1,6 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
-# Version: 2026-02-01-v34-browser-profile-fix
+# Version: 2026-02-01-v36-discord-token-refresh
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
