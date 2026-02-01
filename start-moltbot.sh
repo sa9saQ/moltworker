@@ -1,6 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
-# Version: 2026-02-01-v39-force-rebuild
+# Version: 2026-02-01-v40-browser-timeout
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
@@ -228,7 +228,11 @@ if (process.env.CDP_SECRET && process.env.WORKER_URL) {
     config.browser.profiles = config.browser.profiles || {};
     config.browser.profiles.cloudflare = {
         cdpUrl: process.env.WORKER_URL.replace(/\/$/, '') + '/cdp?secret=' + encodeURIComponent(process.env.CDP_SECRET),
-        color: '#FF6B35'  // Required field for browser profile
+        color: '#FF6B35',  // Required field for browser profile
+        // Extend timeouts for slow Cloudflare Browser Rendering connections
+        connectionTimeout: 180000,  // 3 minutes for initial CDP connection
+        navigationTimeout: 180000,  // 3 minutes for page navigation
+        timeout: 180000,            // General timeout
     };
     config.browser.defaultProfile = 'cloudflare';
     console.log('Browser profile configured for Cloudflare Browser Rendering');
