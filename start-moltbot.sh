@@ -205,6 +205,16 @@ if (process.env.DISCORD_BOT_TOKEN) {
     }
     // Allow all guilds by default (otherwise requires explicit allowlist)
     config.channels.discord.groupPolicy = 'open';
+
+    // Watch specific channels (respond to all messages without mention)
+    // Set DISCORD_WATCH_CHANNELS as comma-separated channel IDs
+    if (process.env.DISCORD_WATCH_CHANNELS) {
+        const watchChannels = process.env.DISCORD_WATCH_CHANNELS.split(',').map(id => id.trim()).filter(Boolean);
+        if (watchChannels.length > 0) {
+            config.channels.discord.watchChannels = watchChannels;
+            console.log('Discord watch channels:', watchChannels);
+        }
+    }
 }
 
 // Slack configuration
