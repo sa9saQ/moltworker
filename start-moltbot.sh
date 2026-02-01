@@ -1,5 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
+# Version: 2026-02-01-v34-browser-profile-fix
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
@@ -170,10 +171,11 @@ config.gateway.port = 18789;
 config.gateway.mode = 'local';
 config.gateway.trustedProxies = ['10.1.0.0'];
 
-// Set gateway token if provided
-if (process.env.CLAWDBOT_GATEWAY_TOKEN) {
+// Set gateway token if provided (support both old and new names)
+const gatewayToken = process.env.CLAWDBOT_GATEWAY_TOKEN || process.env.MOLTBOT_GATEWAY_TOKEN;
+if (gatewayToken) {
     config.gateway.auth = config.gateway.auth || {};
-    config.gateway.auth.token = process.env.CLAWDBOT_GATEWAY_TOKEN;
+    config.gateway.auth.token = gatewayToken;
 }
 
 // Allow insecure auth for dev mode
@@ -310,9 +312,12 @@ rm -f "$CONFIG_DIR/gateway.lock" 2>/dev/null || true
 BIND_MODE="lan"
 echo "Dev mode: ${CLAWDBOT_DEV_MODE:-false}, Bind mode: $BIND_MODE"
 
-if [ -n "$CLAWDBOT_GATEWAY_TOKEN" ]; then
+# Support both old (CLAWDBOT_*) and new (MOLTBOT_*) environment variable names
+GATEWAY_TOKEN="${CLAWDBOT_GATEWAY_TOKEN:-$MOLTBOT_GATEWAY_TOKEN}"
+
+if [ -n "$GATEWAY_TOKEN" ]; then
     echo "Starting gateway with token auth..."
-    exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind "$BIND_MODE" --token "$CLAWDBOT_GATEWAY_TOKEN"
+    exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind "$BIND_MODE" --token "$GATEWAY_TOKEN"
 else
     echo "Starting gateway with device pairing (no token)..."
     exec clawdbot gateway --port 18789 --verbose --allow-unconfigured --bind "$BIND_MODE"

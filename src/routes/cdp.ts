@@ -342,8 +342,9 @@ async function initCDPSession(ws: WebSocket, env: MoltbotEnv): Promise<void> {
   let session: CDPSession | null = null;
 
   try {
-    // Launch browser
-    const browser = await puppeteer.launch(env.BROWSER!);
+    // Launch browser with keep_alive to prevent 60s inactivity timeout
+    // Cloudflare Browser Rendering default timeout is 60s, extend to 10 minutes
+    const browser = await puppeteer.launch(env.BROWSER!, { keep_alive: 600000 });
     const page = await browser.newPage();
     const targetId = crypto.randomUUID();
 
@@ -514,11 +515,11 @@ async function handleTarget(
       const url = (params.url as string) || 'about:blank';
       const page = await session.browser.newPage();
       const targetId = crypto.randomUUID();
-      
+
       session.pages.set(targetId, page);
-      
+
       if (url !== 'about:blank') {
-        await page.goto(url);
+        await page.goto(url, { timeout: 120000 });
       }
       
       sendEvent(ws, 'Target.targetCreated', {
@@ -587,9 +588,11 @@ async function handlePage(
     case 'navigate': {
       const url = params.url as string;
       if (!url) throw new Error('url is required');
-      
+
+      // Use longer timeout (2 minutes) for slow pages like social media sites
       const response = await page.goto(url, {
         waitUntil: 'load',
+        timeout: 120000,
       });
       
       sendEvent(ws, 'Page.frameNavigated', {

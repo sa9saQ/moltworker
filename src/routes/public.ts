@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
 import { MOLTBOT_PORT } from '../config';
-import { findExistingMoltbotProcess } from '../gateway';
+import { findExistingMoltbotProcess, ensureMoltbotGateway } from '../gateway';
 
 /**
  * Public routes - NO Cloudflare Access authentication required
@@ -50,6 +50,42 @@ publicRoutes.get('/api/status', async (c) => {
     }
   } catch (err) {
     return c.json({ ok: false, status: 'error', error: err instanceof Error ? err.message : 'Unknown error' });
+  }
+});
+
+// POST /api/boot - Start the gateway (no auth required, but rate limited)
+// This allows triggering gateway startup without Cloudflare Access
+publicRoutes.post('/api/boot', async (c) => {
+  const sandbox = c.get('sandbox');
+
+  try {
+    // Check if already running first
+    const existingProcess = await findExistingMoltbotProcess(sandbox);
+    if (existingProcess && existingProcess.status === 'running') {
+      return c.json({
+        ok: true,
+        status: 'already_running',
+        processId: existingProcess.id,
+        message: 'Gateway is already running'
+      });
+    }
+
+    // Start the gateway
+    const process = await ensureMoltbotGateway(sandbox, c.env);
+
+    return c.json({
+      ok: true,
+      status: 'started',
+      processId: process.id,
+      message: 'Gateway boot initiated',
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({
+      ok: false,
+      status: 'error',
+      error: errorMessage
+    }, 500);
   }
 });
 
