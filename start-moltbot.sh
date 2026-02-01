@@ -216,7 +216,8 @@ if (process.env.CDP_SECRET && process.env.WORKER_URL) {
     config.browser = config.browser || {};
     config.browser.profiles = config.browser.profiles || {};
     config.browser.profiles.cloudflare = {
-        cdpUrl: process.env.WORKER_URL.replace(/\/$/, '') + '/cdp?secret=' + encodeURIComponent(process.env.CDP_SECRET)
+        cdpUrl: process.env.WORKER_URL.replace(/\/$/, '') + '/cdp?secret=' + encodeURIComponent(process.env.CDP_SECRET),
+        color: '#FF6B35'  // Required field for browser profile
     };
     config.browser.defaultProfile = 'cloudflare';
     console.log('Browser profile configured for Cloudflare Browser Rendering');
