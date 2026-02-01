@@ -89,6 +89,33 @@ publicRoutes.post('/api/boot', async (c) => {
   }
 });
 
+// GET /api/logs - Get recent gateway logs (for debugging)
+publicRoutes.get('/api/logs', async (c) => {
+  const sandbox = c.get('sandbox');
+
+  try {
+    const process = await findExistingMoltbotProcess(sandbox);
+    if (!process) {
+      return c.json({ ok: false, error: 'Gateway not running' });
+    }
+
+    const logs = await process.getLogs();
+    // Return last 100 lines of stdout/stderr
+    const stdout = (logs.stdout || '').split('\n').slice(-100).join('\n');
+    const stderr = (logs.stderr || '').split('\n').slice(-100).join('\n');
+
+    return c.json({
+      ok: true,
+      processId: process.id,
+      status: process.status,
+      stdout,
+      stderr,
+    });
+  } catch (err) {
+    return c.json({ ok: false, error: err instanceof Error ? err.message : 'Unknown error' }, 500);
+  }
+});
+
 // GET /_admin/assets/* - Admin UI static assets (CSS, JS need to load for login redirect)
 // Assets are built to dist/client with base "/_admin/"
 publicRoutes.get('/_admin/assets/*', async (c) => {
