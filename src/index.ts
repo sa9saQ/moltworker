@@ -10,8 +10,9 @@
  * - Admin UI at /_admin/ for device management
  * - Configuration via environment secrets
  *
- * Required secrets (set via `wrangler secret put`):
- * - ANTHROPIC_API_KEY: Your Anthropic API key
+ * Authentication (one of these is required):
+ * - AI_GATEWAY_API_KEY + AI_GATEWAY_BASE_URL: Cloudflare AI Gateway (recommended)
+ * - ANTHROPIC_API_KEY: Direct Anthropic API key
  *
  * Optional secrets:
  * - MOLTBOT_GATEWAY_TOKEN: Token to protect gateway access
@@ -67,15 +68,16 @@ function validateRequiredEnv(env: MoltbotEnv): string[] {
     missing.push('CF_ACCESS_AUD');
   }
 
-  // Check for AI Gateway or direct Anthropic configuration
-  if (env.AI_GATEWAY_API_KEY) {
-    // AI Gateway requires both API key and base URL
-    if (!env.AI_GATEWAY_BASE_URL) {
-      missing.push('AI_GATEWAY_BASE_URL (required when using AI_GATEWAY_API_KEY)');
-    }
-  } else if (!env.ANTHROPIC_API_KEY) {
-    // Direct Anthropic access requires API key
+  // Check for API key authentication
+  const hasApiKey = !!env.ANTHROPIC_API_KEY || !!env.AI_GATEWAY_API_KEY;
+
+  if (!hasApiKey) {
     missing.push('ANTHROPIC_API_KEY or AI_GATEWAY_API_KEY');
+  }
+
+  // AI Gateway requires base URL when using its API key
+  if (env.AI_GATEWAY_API_KEY && !env.AI_GATEWAY_BASE_URL) {
+    missing.push('AI_GATEWAY_BASE_URL (required when using AI_GATEWAY_API_KEY)');
   }
 
   return missing;
@@ -154,13 +156,13 @@ app.use('*', async (c, next) => {
 
   // Skip validation for routes that don't need full env validation
   const skipPaths = [
-    '/debug',       // Has own enable check
+    '/debug',       // Has own enable check (DEBUG_ROUTES)
     '/browser',     // Only needs CDP_SECRET and BROWSER
     '/cdp',         // Only needs CDP_SECRET
-    '/sandbox-health',
-    '/api/env-check',
-    '/api/browser-check',
-    '/api/browser-test',
+    '/sandbox-health', // Simple health check
+    '/logo.png',
+    '/logo-small.png',
+    '/api/status',  // Basic status only
   ];
 
   if (skipPaths.some(path => url.pathname.startsWith(path))) {
@@ -200,20 +202,22 @@ app.use('*', async (c, next) => {
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
 
-  // Skip CF Access for routes with their own authentication
+  // Skip CF Access for routes with their own authentication or truly public routes
+  // SECURITY: Sensitive endpoints now require CF Access authentication
   const skipPaths = [
     '/browser',     // Uses CDP_SECRET
     '/cdp',         // Uses CDP_SECRET
-    '/sandbox-health',
+    '/sandbox-health', // Simple health check
     '/logo.png',
     '/logo-small.png',
-    '/api/status',
-    '/api/boot',
-    '/api/env-check',
-    '/api/browser-check',
-    '/api/browser-test',
-    '/api/logs',
-    '/_admin/assets',
+    '/api/status',  // Read-only status check
+    '/_admin/assets', // Static assets
+    // REMOVED for security (now require CF Access auth):
+    // - /api/boot (could be abused for DoS)
+    // - /api/logs (could leak internal info)
+    // - /api/env-check (shows configuration state)
+    // - /api/browser-check (shows container config)
+    // - /api/browser-test (executes browser operations)
   ];
 
   if (skipPaths.some(path => url.pathname.startsWith(path))) {

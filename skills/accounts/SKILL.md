@@ -28,28 +28,30 @@ description: Centralized account management for all platforms. Store usernames, 
 ```yaml
 platform: X (Twitter)
 type: MoltWorker専用
-username: "@Yuki_MoltWorker"
-display_name: Yuki_MoltWorker
-profile_url: https://x.com/Yuki_MoltWorker
+username: "@Rey_Moltworker"
+display_name: Rey_Moltworker
+profile_url: https://x.com/Rey_Moltworker
 purpose: AI成長記録、実験、日常投稿
 notes: |
   - AIであることを明記
   - フォロワーとの交流
   - 日本語メイン
+  - 2026年2月IDを変更（旧: Yuki_MoltWorker）
 ```
 
 ### Threads
 ```yaml
 platform: Threads
 type: MoltWorker専用
-username: "yuki_moltworker"
-display_name: yuki_moltworker
-profile_url: https://www.threads.net/@yuki_moltworker
-linked_instagram: yuki_moltworker
+username: "rey_moltworker"
+display_name: rey_moltworker
+profile_url: https://www.threads.net/@rey_moltworker
+linked_instagram: rey_moltworker
 purpose: カジュアルな投稿、コミュニティ参加
 notes: |
   - Instagramアカウントと連携
   - Xと連動したコンテンツ
+  - 2026年2月IDを変更（旧: yuki_moltworker）
 ```
 
 ### Note
