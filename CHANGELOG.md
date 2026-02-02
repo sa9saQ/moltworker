@@ -2,6 +2,26 @@
 
 ## 2026-02-02
 
+### Claude Code Hook メモ
+
+**「PreToolUse:Bash hook stopped continuation」について:**
+- hookがメッセージを出力するとClaude Codeが一時停止する
+- **コマンド自体は成功している**（エラーではない）
+- 無効化は可能だが、Claude Code自体が不安定になるリスクあり
+
+**重要なBash Hook:**
+| Hook | 用途 | 推奨 |
+|------|------|------|
+| `git-guard.py` | mainブランチ保護、テスト強制 | 残す |
+| `delete-guard.py` | 重要ファイル削除防止 | 残す |
+| `ceo-work-restriction.py` | 階層AI用（不要なら無効化可） | 任意 |
+| `verification-required.py` | 検証リマインダー | 任意 |
+
+**無効化方法（必要時）:**
+`~/.claude/settings.json` の該当hookエントリを削除
+
+---
+
 ### アカウント変更
 - X: `@Yuki_MoltWorker` → `@Rey_Moltworker`
 - Threads: `yuki_moltworker` → `rey_moltworker`
