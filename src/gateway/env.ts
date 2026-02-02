@@ -63,6 +63,10 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   if (env.SLACK_APP_TOKEN) envVars.SLACK_APP_TOKEN = env.SLACK_APP_TOKEN;
   if (env.CDP_SECRET) envVars.CDP_SECRET = env.CDP_SECRET;
   if (env.WORKER_URL) envVars.WORKER_URL = env.WORKER_URL;
+  // MOLTBOT_URL for X API calls (fallback to WORKER_URL if not set)
+  if (env.MOLTBOT_URL || env.WORKER_URL) {
+    envVars.MOLTBOT_URL = env.MOLTBOT_URL || env.WORKER_URL;
+  }
 
   return envVars;
 }
