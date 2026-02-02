@@ -2,6 +2,21 @@
 
 ## 2026-02-02
 
+### OpenClaw/clawdbot アップデート待ち
+
+**v2026.2.1** (GitHub: 2026-02-02リリース、npm: 未公開)
+
+重要な変更:
+- TLS 1.3必須化
+- パストラバーサル攻撃防止
+- セキュリティパッチ複数
+- Windows spawn()修正
+- メモリ検索改善
+
+**TODO:** npmに公開されたら `Dockerfile` の `clawdbot@2026.1.24-3` を `clawdbot@2026.2.1` に更新
+
+---
+
 ### Claude Code Hook メモ
 
 **「PreToolUse:Bash hook stopped continuation」について:**
