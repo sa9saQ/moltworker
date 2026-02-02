@@ -97,6 +97,7 @@
 | `root-cause-tracing` | 根本原因追跡（5 Whys、フォールトツリー） |
 | `verification-checkpoint` | 完了宣言前の検証チェックポイント |
 | `prompt-injection-guard` | プロンプトインジェクション防御 |
+| `skill-self-improvement` | 自己スキル改善（Claude Code同等品質） |
 
 **承認フロー改善:**
 - `metamask-wallet`: 4段階承認レベル（自動→確認→承認→二重確認）
