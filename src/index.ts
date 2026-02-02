@@ -150,6 +150,19 @@ app.route('/browser', browserApi);
 // Uses CDP_SECRET for authentication (same as browser API)
 app.route('/x', xApi);
 
+// Redirect /api/tweet and /api/thread to /x/* endpoints
+// (For compatibility with MoltBot that may call /api/tweet)
+app.post('/api/tweet', async (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = '/x/tweet';
+  return c.redirect(url.toString(), 307);
+});
+app.post('/api/thread', async (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = '/x/thread';
+  return c.redirect(url.toString(), 307);
+});
+
 // =============================================================================
 // PROTECTED ROUTES: Cloudflare Access authentication required
 // =============================================================================
