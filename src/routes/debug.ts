@@ -350,7 +350,159 @@ debug.get('/env', async (c) => {
     bind_mode: c.env.CLAWDBOT_BIND_MODE,
     cf_access_team_domain: c.env.CF_ACCESS_TEAM_DOMAIN,
     has_cf_access_aud: !!c.env.CF_ACCESS_AUD,
+    // Browser-related environment variables
+    has_cdp_secret: !!c.env.CDP_SECRET,
+    has_worker_url: !!c.env.WORKER_URL,
+    worker_url: c.env.WORKER_URL ? c.env.WORKER_URL.replace(/^(https?:\/\/[^/]+).*/, '$1/...') : null,
+    has_browser_binding: !!c.env.BROWSER,
   });
+});
+
+// GET /debug/browser - Check browser configuration and test CDP endpoint
+debug.get('/browser', async (c) => {
+  const results: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    checks: {},
+  };
+
+  // Check 1: Environment variables
+  results.checks = {
+    cdp_secret_set: !!c.env.CDP_SECRET,
+    worker_url_set: !!c.env.WORKER_URL,
+    browser_binding_exists: !!c.env.BROWSER,
+  };
+
+  if (c.env.WORKER_URL) {
+    results.worker_url_preview = c.env.WORKER_URL.replace(/^(https?:\/\/[^/]+).*/, '$1/...');
+  }
+
+  // Check 2: Test CDP endpoint directly (without WebSocket)
+  if (c.env.CDP_SECRET && c.env.WORKER_URL) {
+    try {
+      const cdpUrl = `${c.env.WORKER_URL.replace(/\/$/, '')}/cdp?secret=${encodeURIComponent(c.env.CDP_SECRET)}`;
+      const response = await fetch(cdpUrl, {
+        headers: { 'Accept': 'application/json' },
+      });
+
+      (results.checks as Record<string, unknown>).cdp_endpoint_reachable = response.ok;
+      (results.checks as Record<string, unknown>).cdp_endpoint_status = response.status;
+
+      if (response.ok) {
+        const body = await response.json();
+        results.cdp_response = body;
+      } else {
+        results.cdp_error = await response.text();
+      }
+    } catch (error) {
+      (results.checks as Record<string, unknown>).cdp_endpoint_reachable = false;
+      results.cdp_connection_error = error instanceof Error ? error.message : 'Unknown error';
+    }
+  }
+
+  // Check 3: Test /json/version endpoint
+  if (c.env.CDP_SECRET && c.env.WORKER_URL) {
+    try {
+      const versionUrl = `${c.env.WORKER_URL.replace(/\/$/, '')}/cdp/json/version?secret=${encodeURIComponent(c.env.CDP_SECRET)}`;
+      const response = await fetch(versionUrl);
+
+      (results.checks as Record<string, unknown>).cdp_version_reachable = response.ok;
+
+      if (response.ok) {
+        results.cdp_version = await response.json();
+      }
+    } catch (error) {
+      (results.checks as Record<string, unknown>).cdp_version_reachable = false;
+      results.cdp_version_error = error instanceof Error ? error.message : 'Unknown error';
+    }
+  }
+
+  // Check 4: Browser binding test (direct puppeteer test)
+  if (c.env.BROWSER) {
+    try {
+      const puppeteer = await import('@cloudflare/puppeteer');
+
+      // Just check if we can access the binding - don't actually launch
+      results.browser_binding_type = typeof c.env.BROWSER;
+      (results.checks as Record<string, unknown>).browser_binding_valid = true;
+
+      // Attempt to launch browser with very short timeout to test availability
+      const startTime = Date.now();
+      try {
+        const browser = await puppeteer.default.launch(c.env.BROWSER, { keep_alive: 10000 });
+        const launchTime = Date.now() - startTime;
+
+        results.browser_launch_time_ms = launchTime;
+        (results.checks as Record<string, unknown>).browser_launch_success = true;
+
+        // Get browser version
+        const version = await browser.version();
+        results.browser_version = version;
+
+        // Close immediately
+        await browser.close();
+      } catch (launchError) {
+        const launchTime = Date.now() - startTime;
+        results.browser_launch_time_ms = launchTime;
+        (results.checks as Record<string, unknown>).browser_launch_success = false;
+        results.browser_launch_error = launchError instanceof Error ? launchError.message : 'Unknown error';
+      }
+    } catch (importError) {
+      (results.checks as Record<string, unknown>).browser_binding_valid = false;
+      results.browser_import_error = importError instanceof Error ? importError.message : 'Unknown error';
+    }
+  }
+
+  // Check 5: Container's browser config
+  const sandbox = c.get('sandbox');
+  try {
+    const proc = await sandbox.startProcess('cat /root/.clawdbot/clawdbot.json');
+
+    let attempts = 0;
+    while (attempts < 10) {
+      await new Promise(r => setTimeout(r, 200));
+      if (proc.status !== 'running') break;
+      attempts++;
+    }
+
+    const logs = await proc.getLogs();
+    const stdout = logs.stdout || '';
+
+    try {
+      const config = JSON.parse(stdout);
+      if (config.browser) {
+        results.container_browser_config = {
+          enabled: config.browser.enabled,
+          defaultProfile: config.browser.defaultProfile,
+          profiles: config.browser.profiles ? Object.keys(config.browser.profiles) : [],
+          remoteCdpTimeoutMs: config.browser.remoteCdpTimeoutMs,
+          remoteCdpHandshakeTimeoutMs: config.browser.remoteCdpHandshakeTimeoutMs,
+        };
+
+        // Show CDP URL (sanitized)
+        if (config.browser.profiles?.cloudflare?.cdpUrl) {
+          results.container_cdp_url = config.browser.profiles.cloudflare.cdpUrl
+            .replace(/secret=[^&]+/, 'secret=***');
+        }
+      } else {
+        results.container_browser_config = null;
+        results.container_browser_config_missing = true;
+      }
+    } catch {
+      results.container_config_parse_error = 'Failed to parse container config';
+    }
+  } catch (error) {
+    results.container_config_error = error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  // Summary
+  const checks = results.checks as Record<string, boolean>;
+  results.summary = {
+    all_env_vars_set: checks.cdp_secret_set && checks.worker_url_set && checks.browser_binding_exists,
+    cdp_endpoint_working: checks.cdp_endpoint_reachable === true,
+    browser_working: checks.browser_launch_success === true,
+  };
+
+  return c.json(results);
 });
 
 // GET /debug/container-config - Read the moltbot config from inside the container

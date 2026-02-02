@@ -1,6 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
-# Version: 2026-02-01-v40-browser-timeout
+# Version: 2026-02-02-v55-ai-gateway-fix
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
@@ -156,6 +156,18 @@ try {
     console.log('Starting with empty config');
 }
 
+// Clean up invalid browser profile keys from R2 backup (not recognized by clawdbot)
+if (config.browser?.profiles) {
+    for (const [name, profile] of Object.entries(config.browser.profiles)) {
+        if (profile && typeof profile === 'object') {
+            delete profile.connectionTimeout;
+            delete profile.navigationTimeout;
+            delete profile.timeout;
+        }
+    }
+    console.log('Cleaned up invalid browser profile keys');
+}
+
 // Ensure nested objects exist
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
@@ -225,14 +237,21 @@ if (process.env.DISCORD_BOT_TOKEN) {
 // This allows MoltWorker to use browser automation via CDP WebSocket
 if (process.env.CDP_SECRET && process.env.WORKER_URL) {
     config.browser = config.browser || {};
+    config.browser.enabled = true;  // Explicitly enable browser
+    // Increase timeouts for remote CDP over internet (Cloudflare edge)
+    // Browser Rendering can take 30+ seconds to spin up on first connection
+    config.browser.remoteCdpTimeoutMs = 60000;  // 60 seconds for reachability check
+    config.browser.remoteCdpHandshakeTimeoutMs = 90000;  // 90 seconds for WebSocket handshake
     config.browser.profiles = config.browser.profiles || {};
+    // Clean up invalid keys from old config (not recognized by clawdbot)
+    if (config.browser.profiles.cloudflare) {
+        delete config.browser.profiles.cloudflare.connectionTimeout;
+        delete config.browser.profiles.cloudflare.navigationTimeout;
+        delete config.browser.profiles.cloudflare.timeout;
+    }
     config.browser.profiles.cloudflare = {
         cdpUrl: process.env.WORKER_URL.replace(/\/$/, '') + '/cdp?secret=' + encodeURIComponent(process.env.CDP_SECRET),
         color: '#FF6B35',  // Required field for browser profile
-        // Extend timeouts for slow Cloudflare Browser Rendering connections
-        connectionTimeout: 180000,  // 3 minutes for initial CDP connection
-        navigationTimeout: 180000,  // 3 minutes for page navigation
-        timeout: 180000,            // General timeout
     };
     config.browser.defaultProfile = 'cloudflare';
     console.log('Browser profile configured for Cloudflare Browser Rendering');
@@ -285,7 +304,6 @@ if (isOpenAI) {
         models: [
             { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
             { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
-            { id: 'claude-3-haiku-20240307', name: 'Claude Haiku', contextWindow: 200000 },
         ]
     };
     // Include API key in provider config if set (required when using custom baseUrl)
@@ -297,11 +315,32 @@ if (isOpenAI) {
     config.agents.defaults.models = config.agents.defaults.models || {};
     config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
     config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
-    config.agents.defaults.models['anthropic/claude-3-haiku-20240307'] = { alias: 'Haiku' };
     // Default to Sonnet for cost efficiency (model-router skill will switch to Opus when needed)
     config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5-20250929';
 } else {
-    // Default to Sonnet without custom base URL (model-router skill switches to Opus when needed)
+    // Default to Sonnet 4.5 with direct Anthropic API access
+    // Always configure anthropic provider properly to avoid config validation errors
+    console.log('Configuring Anthropic provider with direct API access');
+    config.models = config.models || {};
+    config.models.providers = config.models.providers || {};
+    const providerConfig = {
+        baseUrl: 'https://api.anthropic.com',  // Default Anthropic API endpoint
+        api: 'anthropic-messages',
+        models: [
+            { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', contextWindow: 200000 },
+            { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5', contextWindow: 200000 },
+        ]
+    };
+    // Include API key in provider config
+    if (process.env.ANTHROPIC_API_KEY) {
+        providerConfig.apiKey = process.env.ANTHROPIC_API_KEY;
+        console.log('API key included in provider config (len=' + process.env.ANTHROPIC_API_KEY.length + ')');
+    }
+    config.models.providers.anthropic = providerConfig;
+    // Add models to the allowlist so they appear in /models
+    config.agents.defaults.models = config.agents.defaults.models || {};
+    config.agents.defaults.models['anthropic/claude-opus-4-5-20251101'] = { alias: 'Opus 4.5' };
+    config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
     config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5-20250929';
 }
 

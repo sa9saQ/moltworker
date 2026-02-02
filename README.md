@@ -396,6 +396,32 @@ OpenClaw in Cloudflare Sandbox uses multiple authentication layers:
 
 ## Troubleshooting
 
+### Discord 403 エラー: "HTTP 403: forbidden: Request not allowed"
+
+**原因候補:**
+1. **Cloudflareエッジ経由の地域制限**: Cloudflare Workersから直接Anthropic APIにアクセスすると、エッジロケーションによっては香港などの制限地域を経由し、403が発生
+2. **R2バックアップの設定破損**: 古い/壊れた設定がR2から復元されている
+
+**解決方法:**
+```bash
+# 1. R2バックアップをリセット
+npx wrangler r2 object delete moltbot-config/moltbot-backup.tar.gz --remote
+
+# 2. start-moltbot.shのバージョンを更新（コンテナ強制再起動のため）
+
+# 3. 再デプロイ
+npm run deploy
+
+# 4. ステータス確認（新しいprocessIdになっていればOK）
+curl https://your-worker.workers.dev/api/status
+```
+
+**恒久的対策:**
+Cloudflare AI Gatewayを使用してAnthropicにアクセスする:
+- 参考: https://developers.cloudflare.com/ai-gateway/usage/providers/anthropic/
+
+---
+
 **`npm run dev` fails with an `Unauthorized` error:** You need to enable Cloudflare Containers in the [Containers dashboard](https://dash.cloudflare.com/?to=/:account/workers/containers)
 
 **Gateway fails to start:** Check `npx wrangler secret list` and `npx wrangler tail`

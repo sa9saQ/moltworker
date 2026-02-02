@@ -27,8 +27,8 @@ RUN mkdir -p /root/.clawdbot \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-02-01-v40-browser-timeout
-# Force rebuild timestamp: 1738422100
+# Build cache bust: 2026-02-02-v53-public-browser-check
+# Force rebuild timestamp: 1770008400
 COPY start-moltbot.sh /usr/local/bin/start-moltbot.sh
 RUN chmod +x /usr/local/bin/start-moltbot.sh
 
