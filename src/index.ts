@@ -28,7 +28,7 @@ import type { AppEnv, MoltbotEnv } from './types';
 import { MOLTBOT_PORT } from './config';
 import { createAccessMiddleware } from './auth';
 import { ensureMoltbotGateway, findExistingMoltbotProcess, syncToR2 } from './gateway';
-import { publicRoutes, api, adminUi, debug, cdp, browserApi } from './routes';
+import { publicRoutes, api, adminUi, debug, cdp, browserApi, xApi } from './routes';
 import loadingPageHtml from './assets/loading.html';
 import configErrorHtml from './assets/config-error.html';
 
@@ -146,6 +146,10 @@ app.route('/cdp', cdp);
 // Uses same secret auth as CDP
 app.route('/browser', browserApi);
 
+// Mount X API routes (OAuth 1.0a Twitter/X posting)
+// Uses CDP_SECRET for authentication (same as browser API)
+app.route('/x', xApi);
+
 // =============================================================================
 // PROTECTED ROUTES: Cloudflare Access authentication required
 // =============================================================================
@@ -159,6 +163,7 @@ app.use('*', async (c, next) => {
     '/debug',       // Has own enable check (DEBUG_ROUTES)
     '/browser',     // Only needs CDP_SECRET and BROWSER
     '/cdp',         // Only needs CDP_SECRET
+    '/x',           // Only needs CDP_SECRET and X_API_* credentials
     '/sandbox-health', // Simple health check
     '/logo.png',
     '/logo-small.png',
@@ -207,6 +212,7 @@ app.use('*', async (c, next) => {
   const skipPaths = [
     '/browser',     // Uses CDP_SECRET
     '/cdp',         // Uses CDP_SECRET
+    '/x',           // Uses CDP_SECRET for X API
     '/sandbox-health', // Simple health check
     '/logo.png',
     '/logo-small.png',

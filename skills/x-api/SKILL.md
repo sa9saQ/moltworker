@@ -6,102 +6,97 @@ auto_trigger: false
 
 # X API 投稿スキル
 
-X（旧Twitter）公式APIを使った投稿スキル。OAuth 1.0a認証。
+X（旧Twitter）公式APIを使った投稿スキル。Workers APIエンドポイント経由。
 
-## 必要な環境変数
+## アーキテクチャ
+
+```
+MoltBot → /x/tweet → Workers (OAuth署名) → X API
+```
+
+**重要**: OAuth認証はWorkers側で行われる。MoltBotはWorkersのAPIを呼ぶだけ。
+
+## 必要な環境変数（Cloudflare Workers Secrets）
 
 ```
 X_API_KEY           # Consumer Key (API Key)
 X_API_SECRET        # Consumer Secret (API Secret Key)
 X_ACCESS_TOKEN      # Access Token
 X_ACCESS_TOKEN_SECRET # Access Token Secret
+CDP_SECRET          # API認証用シークレット
 ```
 
 ---
 
-## 投稿方法
+## Workers APIエンドポイント
+
+### ステータス確認
+```
+GET /x/status
+```
+
+### ツイート投稿
+```
+POST /x/tweet?secret={CDP_SECRET}
+Content-Type: application/json
+
+{
+  "text": "ツイート内容（最大280文字）",
+  "reply_to": "返信先ツイートID（オプション）",
+  "quote_tweet_id": "引用ツイートID（オプション）"
+}
+```
+
+### スレッド投稿
+```
+POST /x/thread?secret={CDP_SECRET}
+Content-Type: application/json
+
+{
+  "tweets": ["1つ目のツイート", "2つ目のツイート", ...]
+}
+```
+
+### ツイート削除
+```
+DELETE /x/tweet/{tweet_id}?secret={CDP_SECRET}
+```
+
+---
+
+## MoltBotからの呼び出し方法
 
 ### 1. テキスト投稿
 
 ```javascript
-// OAuth 1.0a 署名生成
-const crypto = require('crypto');
+// MOLTBOT_URL と CDP_SECRET は環境変数から取得
+const response = await fetch(`${env.MOLTBOT_URL}/x/tweet?secret=${env.CDP_SECRET}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ text: 'Hello World!' })
+});
 
-async function postTweet(text) {
-  const url = 'https://api.twitter.com/2/tweets';
-  const method = 'POST';
-  const body = JSON.stringify({ text });
-
-  // OAuth 1.0a パラメータ
-  const oauthParams = {
-    oauth_consumer_key: env.X_API_KEY,
-    oauth_token: env.X_ACCESS_TOKEN,
-    oauth_signature_method: 'HMAC-SHA1',
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_nonce: crypto.randomBytes(16).toString('hex'),
-    oauth_version: '1.0'
-  };
-
-  // 署名ベース文字列
-  const params = Object.keys(oauthParams).sort()
-    .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(oauthParams[k])}`)
-    .join('&');
-
-  const signatureBase = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(params)}`;
-
-  // 署名キー
-  const signingKey = `${encodeURIComponent(env.X_API_SECRET)}&${encodeURIComponent(env.X_ACCESS_TOKEN_SECRET)}`;
-
-  // 署名計算
-  const signature = crypto
-    .createHmac('sha1', signingKey)
-    .update(signatureBase)
-    .digest('base64');
-
-  oauthParams.oauth_signature = signature;
-
-  // Authorization ヘッダー
-  const authHeader = 'OAuth ' + Object.keys(oauthParams).sort()
-    .map(k => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
-    .join(', ');
-
-  // API リクエスト
-  const response = await fetch(url, {
-    method,
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    },
-    body
-  });
-
-  return response.json();
-}
+const result = await response.json();
+// { success: true, data: { id: "12345", text: "Hello World!" }, url: "https://x.com/i/status/12345" }
 ```
 
 ### 2. スレッド投稿
 
 ```javascript
-async function postThread(tweets) {
-  let previousTweetId = null;
-  const results = [];
+const response = await fetch(`${env.MOLTBOT_URL}/x/thread?secret=${env.CDP_SECRET}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    tweets: [
+      'AIツールを100個試した',
+      '本当に使えるのは5個',
+      'その5個を紹介します'
+    ]
+  })
+});
 
-  for (const text of tweets) {
-    const body = { text };
-    if (previousTweetId) {
-      body.reply = { in_reply_to_tweet_id: previousTweetId };
-    }
-
-    const result = await postTweet(body);
-    results.push(result);
-    previousTweetId = result.data.id;
-
-    // レート制限対策
-    await new Promise(r => setTimeout(r, 1000));
-  }
-
-  return results;
-}
+const result = await response.json();
+// { success: true, data: [...], url: "https://x.com/i/status/12345", count: 3 }
 ```
 
 ---

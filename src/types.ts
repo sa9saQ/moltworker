@@ -40,6 +40,12 @@ export interface MoltbotEnv {
   BROWSER?: Fetcher;
   CDP_SECRET?: string; // Shared secret for CDP endpoint authentication
   WORKER_URL?: string; // Public URL of the worker (for CDP endpoint)
+  MOLTBOT_URL?: string; // Public URL of the worker (alternative name)
+  // X (Twitter) API credentials
+  X_API_KEY?: string; // Consumer Key (API Key)
+  X_API_SECRET?: string; // Consumer Secret (API Secret Key)
+  X_ACCESS_TOKEN?: string; // Access Token
+  X_ACCESS_TOKEN_SECRET?: string; // Access Token Secret
 }
 
 /**

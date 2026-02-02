@@ -4,3 +4,4 @@ export { adminUi } from './admin-ui';
 export { debug } from './debug';
 export { cdp } from './cdp';
 export { browserApi } from './browser-api';
+export { xApi } from './x-api';

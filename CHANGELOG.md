@@ -2,6 +2,28 @@
 
 ## 2026-02-02
 
+### X API Workers統合
+
+**問題**: コンテナにX API認証情報が渡されていなかった
+
+**解決**: Workers経由のAPIエンドポイントを実装
+- `/x/status` - 設定状態確認
+- `/x/tweet` - ツイート投稿（OAuth 1.0a）
+- `/x/thread` - スレッド投稿
+- `/x/tweet/:id` - ツイート削除
+
+**アーキテクチャ**:
+```
+MoltBot → /x/tweet → Workers (OAuth署名) → X API
+```
+
+**メリット**:
+- コンテナに機密情報を渡さない
+- OAuth署名をWorkers側で安全に処理
+- CDP_SECRETで認証（既存の仕組みを再利用）
+
+---
+
 ### OpenClaw/clawdbot アップデート待ち
 
 **v2026.2.1** (GitHub: 2026-02-02リリース、npm: 未公開)
