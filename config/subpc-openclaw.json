@@ -1,0 +1,85 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-opus-4-5"
+      },
+      "workspace": "/home/sa9saq/openclaw-workspace",
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
+      "models": {
+        "anthropic/claude-opus-4-5": {
+          "alias": "Opus 4.5"
+        },
+        "anthropic/claude-sonnet-4-5": {
+          "alias": "Sonnet 4.5"
+        },
+        "anthropic/claude-3-haiku-20240307": {
+          "alias": "Haiku"
+        }
+      }
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true
+  },
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": "YOUR_DISCORD_BOT_TOKEN",
+      "groupPolicy": "open",
+      "dm": {
+        "policy": "open",
+        "allowFrom": ["*"]
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "plugins": {
+    "entries": {
+      "discord": {
+        "enabled": true
+      }
+    }
+  },
+  "models": {
+    "providers": {
+      "anthropic": {
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "claude-opus-4-5",
+            "name": "Claude Opus 4.5",
+            "contextWindow": 200000
+          },
+          {
+            "id": "claude-sonnet-4-5",
+            "name": "Claude Sonnet 4.5",
+            "contextWindow": 200000
+          }
+        ]
+      }
+    }
+  },
+  "tools": {
+    "exec": {
+      "security": "full"
+    },
+    "elevated": {
+      "enabled": true
+    }
+  }
+}
