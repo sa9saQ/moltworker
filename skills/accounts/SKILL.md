@@ -148,84 +148,83 @@ MoltWorkerが記録します。
 ### 環境変数（APIトークン等）
 ```
 APIトークンやパスワードはここに書かない！
-Cloudflare Secretsに設定：
+ローカル環境変数に設定：
 
-wrangler secret put <VARIABLE_NAME>
+# .envファイルを作成（.gitignoreに追加必須）
+# または ~/.bashrc / ~/.zshrc に export
 ```
 
 ---
 
-## Cloudflare Secrets 設定状況
+## ローカル環境変数 設定状況
 
-### 設定済み一覧（2026-02-01時点）
+### 設定済み一覧（2026-02-時点）
 
 #### AI/LLM
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| ANTHROPIC_API_KEY | Claude API | ✅ 設定済 |
-| AI_GATEWAY_API_KEY | AI Gateway | ✅ 設定済 |
-| AI_GATEWAY_BASE_URL | AI Gateway URL | ✅ 設定済 |
-| OPENAI_API_KEY | OpenAI API | ✅ 設定済 |
+| 変数名 | 用途 | 設定方法 |
+|--------|------|----------|
+| ANTHROPIC_API_KEY | Claude API | .env |
+| OPENAI_API_KEY | OpenAI API | .env |
+| GOOGLE_AI_API_KEY | Gemini API | .env |
 
-#### Discord/Telegram
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| DISCORD_BOT_TOKEN | Discord Bot | ✅ 設定済 |
-| DISCORD_DM_POLICY | DM許可設定 | ✅ 設定済 (open) |
-| TELEGRAM_BOT_TOKEN | Telegram Bot | ✅ 設定済 |
+#### X(Twitter) API
+| 変数名 | 用途 | 設定方法 |
+|--------|------|----------|
+| X_API_KEY | Consumer Key | .env |
+| X_API_SECRET | Consumer Secret | .env |
+| X_ACCESS_TOKEN | Access Token | .env |
+| X_ACCESS_TOKEN_SECRET | Access Token Secret | .env |
 
-#### 認証/セキュリティ
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| MOLTBOT_GATEWAY_TOKEN | Gateway認証 | ✅ 設定済 |
-| CF_ACCESS_TEAM_DOMAIN | Cloudflare Access | ✅ 設定済 |
-| CF_ACCESS_AUD | Access AUD | ✅ 設定済 |
-
-#### R2ストレージ
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| R2_ACCESS_KEY_ID | R2アクセスキー | ✅ 設定済 |
-| R2_SECRET_ACCESS_KEY | R2シークレット | ✅ 設定済 |
-| CF_ACCOUNT_ID | CloudflareアカウントID | ✅ 設定済 |
-
-#### 24時間稼働用（CDP Shim）
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| CDP_SECRET | CDP認証シークレット | ✅ 設定済 |
-| WORKER_URL | Worker公開URL | ✅ 設定済 |
-
-#### SNSプラットフォーム認証情報
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| X_USERNAME | X(Twitter)ユーザー名 | ✅ 設定済 |
-| X_PASSWORD | X(Twitter)パスワード | ✅ 設定済 |
-| THREADS_USERNAME | Threadsユーザー名 | ✅ 設定済 |
-| THREADS_PASSWORD | Threadsパスワード | ✅ 設定済 |
-| NOTE_EMAIL | Noteメールアドレス | ✅ 設定済 |
-| NOTE_PASSWORD | Noteパスワード | ✅ 設定済 |
-| COCONALA_EMAIL | ココナラメール | ✅ 設定済 |
-| COCONALA_PASSWORD | ココナラパスワード | ✅ 設定済 |
-| METAMASK_PASSWORD | MetaMaskパスワード | ✅ 設定済 |
+#### SNSプラットフォーム（ブラウザ自動化用）
+| 変数名 | 用途 | 設定方法 |
+|--------|------|----------|
+| X_USERNAME | X(Twitter)ユーザー名 | .env |
+| X_PASSWORD | X(Twitter)パスワード | .env |
+| THREADS_USERNAME | Threadsユーザー名 | .env |
+| THREADS_PASSWORD | Threadsパスワード | .env |
+| INSTAGRAM_USERNAME | Instagramユーザー名 | .env |
+| INSTAGRAM_PASSWORD | Instagramパスワード | .env |
+| NOTE_EMAIL | Noteメールアドレス | .env |
+| NOTE_PASSWORD | Noteパスワード | .env |
+| COCONALA_EMAIL | ココナラメール | .env |
+| COCONALA_PASSWORD | ココナラパスワード | .env |
+| TIKTOK_USERNAME | TikTokユーザー名 | .env |
+| TIKTOK_PASSWORD | TikTokパスワード | .env |
 
 #### Google関連
-| 変数名 | 用途 | 状態 |
-|--------|------|------|
-| GOOGLE_EMAIL | Googleメールアドレス | ✅ 設定済 |
-| GOOGLE_APP_PASSWORD | Googleアプリパスワード | ✅ 設定済 |
-| GOOGLE_AI_API_KEY | Gemini API | ✅ 設定済 |
-| GOOGLE_SERVICE_ACCOUNT_KEY | GASサービスアカウント | ✅ 設定済 |
+| 変数名 | 用途 | 設定方法 |
+|--------|------|----------|
+| GOOGLE_EMAIL | Googleメールアドレス | .env |
+| GOOGLE_APP_PASSWORD | Googleアプリパスワード | .env |
+| GOOGLE_SERVICE_ACCOUNT_KEY | GASサービスアカウント | .env (JSON文字列) |
 
-### シークレット設定コマンド例
+### 環境変数設定例
 ```bash
-# シークレットの確認
-wrangler secret list
+# ~/.bashrc または ~/.zshrc に追加
+export X_API_KEY="your-api-key"
+export X_API_SECRET="your-api-secret"
+export X_ACCESS_TOKEN="your-access-token"
+export X_ACCESS_TOKEN_SECRET="your-access-token-secret"
 
-# シークレットの設定
-wrangler secret put X_USERNAME
-wrangler secret put X_PASSWORD
+# または .env ファイル（dotenv使用）
+# .env
+X_API_KEY=your-api-key
+X_API_SECRET=your-api-secret
+X_ACCESS_TOKEN=your-access-token
+X_ACCESS_TOKEN_SECRET=your-access-token-secret
+```
 
-# シークレットの削除
-wrangler secret delete <VARIABLE_NAME>
+### Cookie管理
+```
+各プラットフォームのCookieは以下に保存:
+├── x-cookies.json
+├── threads-cookies.json
+├── instagram-cookies.json
+├── note-cookies.json
+├── coconala-cookies.json
+└── tiktok-cookies.json
+
+※ .gitignoreに追加必須
 ```
 
 ---

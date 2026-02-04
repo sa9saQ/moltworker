@@ -1,74 +1,93 @@
 ---
 name: threads-poster
-description: Post content to Threads using HTTP Browser API. Supports text, images, and scheduled posts for engagement optimization.
+description: Post content to Threads using local Puppeteer browser automation. Supports text, images, and scheduled posts.
 ---
 
-# Threads 投稿スキル
+# Threads 投稿スキル（ローカル版）
 
-Threads（Meta）への自動投稿を行うスキル。HTTP Browser APIを使用。
+Threads（Meta）への自動投稿を行うスキル。Puppeteerでローカル実行、Cloudflare不要。
 
 ## クイックスタート
 
-### 基本投稿（HTTP API）
+### 前提条件
 ```bash
-curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://threads.net",
-    "actions": [
-      {"type": "waitForSelector", "selector": "[aria-label=\"Create\"]"},
-      {"type": "click", "selector": "[aria-label=\"Create\"]"},
-      {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
-      {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容をここに"},
-      {"type": "wait", "ms": 1000},
-      {"type": "click", "selector": "[data-testid=\"post-button\"]"},
-      {"type": "wait", "ms": 3000},
-      {"type": "screenshot"}
-    ]
-  }'
+npm install puppeteer
 ```
 
-### 環境変数
+### 基本投稿（Puppeteer）
+```javascript
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+
+async function postToThreads(text) {
+  const client = await createClient({ headless: true });
+
+  const result = await client.executeSequence([
+    { type: 'navigate', url: 'https://threads.net' },
+    { type: 'waitForSelector', selector: '[aria-label="Create"]' },
+    { type: 'click', selector: '[aria-label="Create"]' },
+    { type: 'waitForSelector', selector: '[data-contents="true"]' },
+    { type: 'type', selector: '[data-contents="true"]', text: text },
+    { type: 'wait', ms: 1000 },
+    { type: 'click', selector: '[data-testid="post-button"]' },
+    { type: 'wait', ms: 3000 },
+    { type: 'screenshot' }
+  ]);
+
+  await client.close();
+  return result;
+}
+```
+
+### 環境変数（ログイン用）
 ```bash
-export MOLTBOT_URL="https://your-worker.workers.dev"
-export CDP_SECRET="your-secret"
+export THREADS_USERNAME="your-username"
+export THREADS_PASSWORD="your-password"
 ```
 
 ---
 
-## 投稿パターン（HTTP API）
+## 投稿パターン（Puppeteer）
 
 ### 1. テキスト投稿
-```json
-{
-  "url": "https://threads.net",
-  "actions": [
-    {"type": "waitForSelector", "selector": "[aria-label=\"Create\"]"},
-    {"type": "click", "selector": "[aria-label=\"Create\"]"},
-    {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
-    {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"post-button\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://threads.net' },
+  { type: 'waitForSelector', selector: '[aria-label="Create"]' },
+  { type: 'click', selector: '[aria-label="Create"]' },
+  { type: 'waitForSelector', selector: '[data-contents="true"]' },
+  { type: 'type', selector: '[data-contents="true"]', text: '投稿内容' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="post-button"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 2. プロフィールから投稿
-```json
-{
-  "url": "https://threads.net/@yourusername",
-  "actions": [
-    {"type": "click", "selector": "[aria-label=\"Create\"]"},
-    {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
-    {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"post-button\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://threads.net/@yourusername' },
+  { type: 'click', selector: '[aria-label="Create"]' },
+  { type: 'waitForSelector', selector: '[data-contents="true"]' },
+  { type: 'type', selector: '[data-contents="true"]', text: '投稿内容' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="post-button"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
+```
+
+### 3. Cookie/セッション管理
+```javascript
+const fs = require('fs');
+
+// ログイン後にCookieを保存
+const cookies = await client.getCookies();
+fs.writeFileSync('threads-cookies.json', JSON.stringify(cookies));
+
+// 次回起動時にCookieを復元
+const savedCookies = JSON.parse(fs.readFileSync('threads-cookies.json'));
+await client.setCookies(savedCookies);
 ```
 
 ---

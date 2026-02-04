@@ -11,7 +11,7 @@ description: Generate product images for Coconala/Fiverr by researching competit
 
 ```
 商品画像生成フロー:
-├── 1. 競合リサーチ（cloudflare-browser）
+├── 1. 競合リサーチ（Puppeteer）
 │   └── 成功している出品者の画像を収集・分析
 ├── 2. デザインパターン抽出
 │   └── 色、レイアウト、テキスト配置を分析
@@ -43,15 +43,35 @@ description: Generate product images for Coconala/Fiverr by researching competit
 └── 情報の優先順位
 ```
 
-### ブラウザ操作での収集
+### ブラウザ操作での収集（Puppeteer）
 
 ```javascript
-// 競合画像収集フロー
-1. ココナラでカテゴリ検索
-2. 「おすすめ順」「ランキング」でソート
-3. 上位20件のサムネイル画像URLを取得
-4. 画像をダウンロード or スクリーンショット
-5. 共通パターンを分析
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+
+async function researchCompetitors(category) {
+  const client = await createClient({ headless: true });
+
+  // 1. ココナラでカテゴリ検索
+  await client.executeSequence([
+    { type: 'navigate', url: `https://coconala.com/categories/${category}?sort=ranking` },
+    { type: 'wait', ms: 3000 }
+  ]);
+
+  // 2. 上位20件のサムネイル画像URLを取得
+  const thumbnails = await client.page.evaluate(() => {
+    return [...document.querySelectorAll('.service-item img')]
+      .slice(0, 20)
+      .map(img => img.src);
+  });
+
+  // 3. スクリーンショット保存
+  await client.screenshot({
+    path: '/mnt/e/研究/coconala-research/competitors.png'
+  });
+
+  await client.close();
+  return thumbnails;
+}
 ```
 
 ---

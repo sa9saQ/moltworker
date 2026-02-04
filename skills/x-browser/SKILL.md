@@ -9,27 +9,54 @@ X（旧Twitter）へのブラウザ自動化投稿スキル。HTTP Browser API�
 
 ## クイックスタート
 
-### 基本投稿（HTTP API）
+### 前提条件
 ```bash
-curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://x.com/compose/tweet",
-    "actions": [
-      {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
-      {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容をここに"},
-      {"type": "wait", "ms": 1000},
-      {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
-      {"type": "wait", "ms": 3000},
-      {"type": "screenshot"}
-    ]
-  }'
+npm install puppeteer
 ```
 
-### 環境変数
-```bash
-export MOLTBOT_URL="https://your-worker.workers.dev"
-export CDP_SECRET="your-secret"
+### 基本投稿（Puppeteer）
+```javascript
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+const fs = require('fs');
+
+async function postToX(text) {
+  const client = await createClient({ headless: true });
+
+  // Cookie復元（あれば）
+  if (fs.existsSync('x-cookies.json')) {
+    const cookies = JSON.parse(fs.readFileSync('x-cookies.json'));
+    await client.setCookies(cookies);
+  }
+
+  const result = await client.executeSequence([
+    { type: 'navigate', url: 'https://x.com/compose/tweet' },
+    { type: 'waitForSelector', selector: '[data-testid="tweetTextarea_0"]' },
+    { type: 'type', selector: '[data-testid="tweetTextarea_0"]', text: text },
+    { type: 'wait', ms: 1000 },
+    { type: 'click', selector: '[data-testid="tweetButton"]' },
+    { type: 'wait', ms: 3000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('x-cookies.json', JSON.stringify(cookies));
+
+  await client.close();
+  return result;
+}
+
+// 使用例
+postToX('Hello from Puppeteer! 🚀');
+```
+
+### Cookie管理
+```javascript
+// Cookieファイルを使ってセッション維持
+const COOKIE_FILE = 'x-cookies.json';
+
+// 初回ログイン後にCookieを保存
+// 次回以降はCookieを読み込んでログイン状態を復元
 ```
 
 ---
@@ -62,59 +89,53 @@ API制限:
 
 ---
 
-## 投稿パターン（HTTP API）
+## 投稿パターン（Puppeteer）
 
 ### 1. テキスト投稿
-```json
-{
-  "url": "https://x.com/compose/tweet",
-  "actions": [
-    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
-    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://x.com/compose/tweet' },
+  { type: 'waitForSelector', selector: '[data-testid="tweetTextarea_0"]' },
+  { type: 'type', selector: '[data-testid="tweetTextarea_0"]', text: '投稿内容' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="tweetButton"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 2. スレッド投稿
-```json
-{
-  "url": "https://x.com/compose/tweet",
-  "actions": [
-    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
-    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "スレッド1つ目 🧵"},
-    {"type": "click", "selector": "[data-testid=\"addButton\"]"},
-    {"type": "wait", "ms": 500},
-    {"type": "type", "selector": "[data-testid=\"tweetTextarea_1\"]", "text": "スレッド2つ目"},
-    {"type": "click", "selector": "[data-testid=\"addButton\"]"},
-    {"type": "wait", "ms": 500},
-    {"type": "type", "selector": "[data-testid=\"tweetTextarea_2\"]", "text": "スレッド3つ目（完）"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
-    {"type": "wait", "ms": 5000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://x.com/compose/tweet' },
+  { type: 'waitForSelector', selector: '[data-testid="tweetTextarea_0"]' },
+  { type: 'type', selector: '[data-testid="tweetTextarea_0"]', text: 'スレッド1つ目 🧵' },
+  { type: 'click', selector: '[data-testid="addButton"]' },
+  { type: 'wait', ms: 500 },
+  { type: 'type', selector: '[data-testid="tweetTextarea_1"]', text: 'スレッド2つ目' },
+  { type: 'click', selector: '[data-testid="addButton"]' },
+  { type: 'wait', ms: 500 },
+  { type: 'type', selector: '[data-testid="tweetTextarea_2"]', text: 'スレッド3つ目（完）' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="tweetButton"]' },
+  { type: 'wait', ms: 5000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 3. ホーム画面から投稿
-```json
-{
-  "url": "https://x.com/home",
-  "actions": [
-    {"type": "waitForSelector", "selector": "[data-testid=\"SideNav_NewTweet_Button\"]"},
-    {"type": "click", "selector": "[data-testid=\"SideNav_NewTweet_Button\"]"},
-    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
-    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://x.com/home' },
+  { type: 'waitForSelector', selector: '[data-testid="SideNav_NewTweet_Button"]' },
+  { type: 'click', selector: '[data-testid="SideNav_NewTweet_Button"]' },
+  { type: 'waitForSelector', selector: '[data-testid="tweetTextarea_0"]' },
+  { type: 'type', selector: '[data-testid="tweetTextarea_0"]', text: '投稿内容' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="tweetButton"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ---
@@ -149,27 +170,37 @@ const SELECTORS = {
 
 ### 必要なもの
 ```
-1. X アカウント（ログイン済み）
-2. MOLTBOT_URL と CDP_SECRET
+1. X アカウント
+2. Node.js + puppeteer
 3. 初回は手動ログインが必要
 ```
 
-### ログインフロー（sequence API）
-```json
-{
-  "url": "https://x.com/login",
-  "actions": [
-    {"type": "waitForSelector", "selector": "input[autocomplete=\"username\"]"},
-    {"type": "type", "selector": "input[autocomplete=\"username\"]", "text": "ユーザー名"},
-    {"type": "click", "selector": "[role=\"button\"]:has-text(\"Next\")"},
-    {"type": "wait", "ms": 2000},
-    {"type": "waitForSelector", "selector": "input[type=\"password\"]"},
-    {"type": "type", "selector": "input[type=\"password\"]", "text": "パスワード"},
-    {"type": "click", "selector": "[data-testid=\"LoginForm_Login_Button\"]"},
-    {"type": "wait", "ms": 5000},
-    {"type": "screenshot"}
-  ]
+### ログインフロー（Puppeteer）
+```javascript
+async function loginToX(client) {
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://x.com/login' },
+    { type: 'waitForSelector', selector: 'input[autocomplete="username"]' },
+    { type: 'type', selector: 'input[autocomplete="username"]', text: process.env.X_USERNAME },
+    { type: 'click', selector: '[role="button"]:has-text("Next")' },
+    { type: 'wait', ms: 2000 },
+    { type: 'waitForSelector', selector: 'input[type="password"]' },
+    { type: 'type', selector: 'input[type="password"]', text: process.env.X_PASSWORD },
+    { type: 'click', selector: '[data-testid="LoginForm_Login_Button"]' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+
+  // ログイン成功後にCookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('x-cookies.json', JSON.stringify(cookies));
 }
+```
+
+### 環境変数
+```bash
+export X_USERNAME="your-username"
+export X_PASSWORD="your-password"
 ```
 
 **注意**: 2FA有効時は手動対応が必要

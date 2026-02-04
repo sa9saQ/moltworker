@@ -43,21 +43,92 @@ TikTokブラウザ自動化。動画アップロード、キャプション、�
  デュエット: [on/off]」
 ```
 
-## ブラウザAPI実装
+## Puppeteer実装（ローカル版）
 
+### 前提条件
+```bash
+npm install puppeteer
+```
+
+### 基本投稿
 ```javascript
-// TikTok Studio経由でアップロード
-POST /browser/sequence
-{
-  "steps": [
-    {"action": "goto", "url": "https://www.tiktok.com/creator-center/upload"},
-    {"action": "wait", "selector": "[type='file']"},
-    {"action": "upload", "selector": "input[type='file']", "file": "${video_path}"},
-    {"action": "wait", "ms": 10000}, // アップロード待機
-    {"action": "fill", "selector": "[data-testid='caption-input']", "value": "${caption}"},
-    {"action": "click", "selector": "[data-testid='post-button']"}
-  ]
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+const fs = require('fs');
+
+async function postToTikTok(videoPath, caption) {
+  const client = await createClient({ headless: false }); // TikTokは表示推奨
+
+  // Cookie復元（あれば）
+  if (fs.existsSync('tiktok-cookies.json')) {
+    const cookies = JSON.parse(fs.readFileSync('tiktok-cookies.json'));
+    await client.setCookies(cookies);
+  }
+
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://www.tiktok.com/creator-center/upload' },
+    { type: 'wait', ms: 3000 }
+  ]);
+
+  // ファイルアップロード
+  const fileInput = await client.page.$('input[type="file"]');
+  await fileInput.uploadFile(videoPath);
+
+  await client.executeSequence([
+    { type: 'wait', ms: 15000 }, // アップロード＋処理待機
+    { type: 'waitForSelector', selector: '[data-testid="caption-input"]' },
+    { type: 'type', selector: '[data-testid="caption-input"]', text: caption },
+    { type: 'wait', ms: 1000 },
+    { type: 'click', selector: '[data-testid="post-button"]' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('tiktok-cookies.json', JSON.stringify(cookies));
+
+  await client.close();
 }
+
+// 使用例
+postToTikTok('/path/to/video.mp4', 'キャプション #fyp #viral');
+```
+
+### ログインフロー
+```javascript
+async function loginToTikTok(client) {
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://www.tiktok.com/login' },
+    { type: 'wait', ms: 3000 },
+    // TikTokはQRコード/電話番号/SNS連携が主流
+    // 手動ログイン後にCookieを保存
+    { type: 'screenshot' }
+  ]);
+
+  // 手動ログイン完了後
+  const cookies = await client.getCookies();
+  fs.writeFileSync('tiktok-cookies.json', JSON.stringify(cookies));
+  console.log('TikTok cookies saved');
+}
+```
+
+### セレクタ一覧（2026年版）
+```javascript
+const SELECTORS = {
+  // アップロード関連
+  fileInput: 'input[type="file"]',
+  captionInput: '[data-testid="caption-input"]',
+  postButton: '[data-testid="post-button"]',
+
+  // 設定関連
+  visibilitySelector: '[data-testid="visibility-selector"]',
+  commentToggle: '[data-testid="comment-toggle"]',
+  duetToggle: '[data-testid="duet-toggle"]',
+
+  // プレビュー
+  videoPreview: '[data-testid="video-preview"]',
+  uploadProgress: '[data-testid="upload-progress"]'
+};
 ```
 
 ## コンテンツ戦略

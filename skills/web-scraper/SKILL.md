@@ -64,30 +64,64 @@ auto_trigger: false
  出力形式: [CSV/JSON/Excel]」
 ```
 
-## 技術スタック
+## 技術スタック（ローカル版）
+
+### 前提条件
+```bash
+npm install puppeteer cheerio
+```
 
 ### ブラウザベース（JavaScript必要なサイト）
 ```javascript
-// Cloudflare Browser API使用
-POST /browser/execute
-{
-  "url": "https://example.com",
-  "script": "return [...document.querySelectorAll('.product')].map(el => ({...}))"
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+
+async function scrapeWithBrowser(url, extractScript) {
+  const client = await createClient({ headless: true });
+
+  await client.executeSequence([
+    { type: 'navigate', url: url },
+    { type: 'wait', ms: 3000 }
+  ]);
+
+  // JavaScript実行でデータ抽出
+  const data = await client.page.evaluate(() => {
+    return [...document.querySelectorAll('.product')].map(el => ({
+      name: el.querySelector('.name')?.textContent,
+      price: el.querySelector('.price')?.textContent,
+      image: el.querySelector('img')?.src
+    }));
+  });
+
+  await client.close();
+  return data;
 }
 ```
 
 ### HTTPベース（静的サイト）
 ```javascript
-// 軽量・高速
-fetch(url) → parse HTML → extract data
+const cheerio = require('cheerio');
+
+async function scrapeStatic(url) {
+  const response = await fetch(url);
+  const html = await response.text();
+  const $ = cheerio.load(html);
+
+  return $('.product').map((i, el) => ({
+    name: $(el).find('.name').text(),
+    price: $(el).find('.price').text()
+  })).get();
+}
 ```
 
 ### アンチボット対策
-```
-- ランダム遅延（2-5秒）
-- User-Agent ローテーション
-- プロキシ対応
-- CAPTCHAハンドリング
+```javascript
+// ランダム遅延
+await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+
+// User-Agent設定
+const client = await createClient({
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+});
 ```
 
 ## 出力フォーマット

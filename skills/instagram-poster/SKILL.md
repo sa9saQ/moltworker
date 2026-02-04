@@ -1,12 +1,18 @@
 ---
 name: instagram-poster
-description: Instagram automation via browser. Posts, Reels, Stories, carousel. Schedule and optimize content for engagement.
+description: Instagram automation via local Puppeteer browser. Posts, Reels, Stories, carousel without Cloudflare dependency.
 auto_trigger: false
 ---
 
-# Instagram Poster
+# Instagram Poster（ローカル版）
 
-Instagramブラウザ自動化。投稿、リール、ストーリー、カルーセル対応。
+InstagramブラウザA自動化。Puppeteerでローカル実行、Cloudflare不要。
+
+## 前提条件
+
+```bash
+npm install puppeteer
+```
 
 ## 機能
 
@@ -47,33 +53,67 @@ Instagramブラウザ自動化。投稿、リール、ストーリー、カル�
  キャプション: [text]」
 ```
 
-## ブラウザAPI経由の実装
+## Puppeteer実装
 
 ```javascript
-// ステップ1: ログイン
-POST /browser/sequence
-{
-  "steps": [
-    {"action": "goto", "url": "https://www.instagram.com"},
-    {"action": "wait", "selector": "[name='username']"},
-    {"action": "fill", "selector": "[name='username']", "value": "${username}"},
-    {"action": "fill", "selector": "[name='password']", "value": "${password}"},
-    {"action": "click", "selector": "[type='submit']"},
-    {"action": "wait", "ms": 3000}
-  ]
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+const fs = require('fs');
+
+async function loginToInstagram(client) {
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://www.instagram.com' },
+    { type: 'waitForSelector', selector: '[name="username"]' },
+    { type: 'type', selector: '[name="username"]', text: process.env.INSTAGRAM_USERNAME },
+    { type: 'type', selector: '[name="password"]', text: process.env.INSTAGRAM_PASSWORD },
+    { type: 'click', selector: '[type="submit"]' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('instagram-cookies.json', JSON.stringify(cookies));
 }
 
-// ステップ2: 投稿作成
-POST /browser/sequence
-{
-  "steps": [
-    {"action": "click", "selector": "[aria-label='New post']"},
-    {"action": "upload", "selector": "input[type='file']", "file": "${image_path}"},
-    {"action": "click", "selector": "button:has-text('Next')"},
-    {"action": "click", "selector": "button:has-text('Next')"},
-    {"action": "fill", "selector": "[aria-label='Write a caption...']", "value": "${caption}"},
-    {"action": "click", "selector": "button:has-text('Share')"}
-  ]
+async function postToInstagram(client, imagePath, caption) {
+  // ファイルアップロードにはPuppeteerのpage.uploadFile()を使用
+  const fileInput = await client.page.$('input[type="file"]');
+
+  await client.executeSequence([
+    { type: 'click', selector: '[aria-label="New post"]' },
+    { type: 'wait', ms: 1000 }
+  ]);
+
+  // ファイルアップロード
+  await fileInput.uploadFile(imagePath);
+
+  await client.executeSequence([
+    { type: 'wait', ms: 2000 },
+    { type: 'click', selector: 'button:has-text("Next")' },
+    { type: 'wait', ms: 1000 },
+    { type: 'click', selector: 'button:has-text("Next")' },
+    { type: 'waitForSelector', selector: '[aria-label="Write a caption..."]' },
+    { type: 'type', selector: '[aria-label="Write a caption..."]', text: caption },
+    { type: 'click', selector: 'button:has-text("Share")' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+}
+
+// 使用例
+async function main() {
+  const client = await createClient({ headless: true });
+
+  // Cookie復元（あれば）
+  if (fs.existsSync('instagram-cookies.json')) {
+    const cookies = JSON.parse(fs.readFileSync('instagram-cookies.json'));
+    await client.setCookies(cookies);
+  } else {
+    await loginToInstagram(client);
+  }
+
+  await postToInstagram(client, '/path/to/image.jpg', 'キャプション #hashtag');
+  await client.close();
 }
 ```
 

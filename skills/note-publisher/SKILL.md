@@ -9,103 +9,116 @@ Note記事の下書き作成、公開管理、最適化。HTTP Browser APIを使
 
 ## クイックスタート
 
-### 環境変数
+### 前提条件
 ```bash
-export MOLTBOT_URL="https://your-worker.workers.dev"
-export CDP_SECRET="your-secret"
+npm install puppeteer
 ```
 
-### 記事投稿（HTTP API）
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://note.com/notes/new",
-    "actions": [
-      {"type": "waitForSelector", "selector": "[data-testid=\"title-input\"]"},
-      {"type": "type", "selector": "[data-testid=\"title-input\"]", "text": "記事タイトル"},
-      {"type": "waitForSelector", "selector": ".ProseMirror"},
-      {"type": "type", "selector": ".ProseMirror", "text": "記事本文..."},
-      {"type": "wait", "ms": 2000},
-      {"type": "screenshot"}
-    ]
-  }'
+### 記事投稿（Puppeteer）
+```javascript
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+const fs = require('fs');
+
+async function postToNote(title, body) {
+  const client = await createClient({ headless: true });
+
+  // Cookie復元（あれば）
+  if (fs.existsSync('note-cookies.json')) {
+    const cookies = JSON.parse(fs.readFileSync('note-cookies.json'));
+    await client.setCookies(cookies);
+  }
+
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://note.com/notes/new' },
+    { type: 'waitForSelector', selector: '[data-testid="title-input"]' },
+    { type: 'type', selector: '[data-testid="title-input"]', text: title },
+    { type: 'waitForSelector', selector: '.ProseMirror' },
+    { type: 'type', selector: '.ProseMirror', text: body },
+    { type: 'wait', ms: 2000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('note-cookies.json', JSON.stringify(cookies));
+
+  await client.close();
+}
+
+// 使用例
+postToNote('記事タイトル', '記事本文...');
 ```
 
 ---
 
-## HTTP API操作パターン
+## Puppeteer操作パターン
 
 ### 1. ログイン
-```json
-{
-  "url": "https://note.com/login",
-  "actions": [
-    {"type": "waitForSelector", "selector": "input[name=\"email\"]"},
-    {"type": "type", "selector": "input[name=\"email\"]", "text": "メールアドレス"},
-    {"type": "type", "selector": "input[name=\"password\"]", "text": "パスワード"},
-    {"type": "click", "selector": "button[type=\"submit\"]"},
-    {"type": "wait", "ms": 5000},
-    {"type": "screenshot"}
-  ]
+```javascript
+async function loginToNote(client) {
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://note.com/login' },
+    { type: 'waitForSelector', selector: 'input[name="email"]' },
+    { type: 'type', selector: 'input[name="email"]', text: process.env.NOTE_EMAIL },
+    { type: 'type', selector: 'input[name="password"]', text: process.env.NOTE_PASSWORD },
+    { type: 'click', selector: 'button[type="submit"]' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('note-cookies.json', JSON.stringify(cookies));
 }
 ```
 
 ### 2. 新規記事作成
-```json
-{
-  "url": "https://note.com/notes/new",
-  "actions": [
-    {"type": "waitForSelector", "selector": "[data-testid=\"title-input\"]"},
-    {"type": "type", "selector": "[data-testid=\"title-input\"]", "text": "記事タイトル"},
-    {"type": "waitForSelector", "selector": ".ProseMirror"},
-    {"type": "type", "selector": ".ProseMirror", "text": "記事本文をここに入力..."},
-    {"type": "wait", "ms": 2000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://note.com/notes/new' },
+  { type: 'waitForSelector', selector: '[data-testid="title-input"]' },
+  { type: 'type', selector: '[data-testid="title-input"]', text: '記事タイトル' },
+  { type: 'waitForSelector', selector: '.ProseMirror' },
+  { type: 'type', selector: '.ProseMirror', text: '記事本文をここに入力...' },
+  { type: 'wait', ms: 2000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 3. 下書き保存
-```json
-{
-  "url": "https://note.com/notes/new",
-  "actions": [
-    {"type": "type", "selector": "[data-testid=\"title-input\"]", "text": "タイトル"},
-    {"type": "type", "selector": ".ProseMirror", "text": "本文"},
-    {"type": "click", "selector": "[data-testid=\"save-draft-button\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'type', selector: '[data-testid="title-input"]', text: 'タイトル' },
+  { type: 'type', selector: '.ProseMirror', text: '本文' },
+  { type: 'click', selector: '[data-testid="save-draft-button"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 4. 記事公開
-```json
-{
-  "url": "https://note.com/notes/new",
-  "actions": [
-    {"type": "type", "selector": "[data-testid=\"title-input\"]", "text": "タイトル"},
-    {"type": "type", "selector": ".ProseMirror", "text": "本文"},
-    {"type": "click", "selector": "[data-testid=\"publish-button\"]"},
-    {"type": "waitForSelector", "selector": "[data-testid=\"confirm-publish\"]"},
-    {"type": "click", "selector": "[data-testid=\"confirm-publish\"]"},
-    {"type": "wait", "ms": 5000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'type', selector: '[data-testid="title-input"]', text: 'タイトル' },
+  { type: 'type', selector: '.ProseMirror', text: '本文' },
+  { type: 'click', selector: '[data-testid="publish-button"]' },
+  { type: 'waitForSelector', selector: '[data-testid="confirm-publish"]' },
+  { type: 'click', selector: '[data-testid="confirm-publish"]' },
+  { type: 'wait', ms: 5000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 5. ダッシュボード確認
-```json
-{
-  "url": "https://note.com/dashboard",
-  "actions": [
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"},
-    {"type": "execute", "script": "() => document.body.innerText"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://note.com/dashboard' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
+
+// ページテキスト取得
+const text = await client.page.evaluate(() => document.body.innerText);
 ```
 
 ---

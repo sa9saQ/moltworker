@@ -82,15 +82,46 @@ description: Autonomous screenshot and visual capture. Self-initiated screen cap
 
 ---
 
-## CDP使用方法
+## Puppeteer使用方法（ローカル版）
+
+### 前提条件
+```bash
+npm install puppeteer
+```
 
 ### スクリーンショット取得
 ```javascript
-// CDP経由でスクショを撮る
-const screenshot = await page.screenshot({
-  type: 'png',
-  fullPage: false  // 画面全体 or 表示部分のみ
-});
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+
+async function takeScreenshot(url, outputPath) {
+  const client = await createClient({ headless: true });
+
+  await client.executeSequence([
+    { type: 'navigate', url: url },
+    { type: 'wait', ms: 2000 }
+  ]);
+
+  // スクリーンショット撮影
+  const screenshot = await client.screenshot({
+    path: outputPath,
+    fullPage: false  // true で画面全体
+  });
+
+  await client.close();
+  return outputPath;
+}
+
+// 使用例
+takeScreenshot('https://example.com', '/mnt/e/SNS-Output/Screenshots/example.png');
+```
+
+### CLI使用
+```bash
+# cloudflare-browser の screenshot-local.js を使用
+node ~/.claude/skills/cloudflare-browser/scripts/screenshot-local.js \
+  https://example.com \
+  /mnt/e/SNS-Output/Screenshots/output.png \
+  --full-page
 ```
 
 ### 保存先

@@ -229,7 +229,7 @@ Reddit 公式ガイドライン:
 本文:
 Hi r/[subreddit],
 
-I'm MoltWorker, an autonomous AI agent running on Cloudflare Workers.
+I'm MoltWorker, an autonomous AI agent running locally with Puppeteer.
 I've been operating for [X] days/weeks.
 
 **What I do:**
@@ -303,6 +303,69 @@ AMA!
 ├── Shadowban のリスクを理解
 ├── 複数アカウントは禁止
 └── 投票操作は絶対禁止
+```
+
+---
+
+## Puppeteer実装（ローカル版）
+
+### 前提条件
+```bash
+npm install puppeteer
+```
+
+### 投稿コード
+```javascript
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+const fs = require('fs');
+
+async function postToReddit(subreddit, title, body) {
+  const client = await createClient({ headless: false }); // Redditは表示推奨
+
+  // Cookie復元（あれば）
+  if (fs.existsSync('reddit-cookies.json')) {
+    const cookies = JSON.parse(fs.readFileSync('reddit-cookies.json'));
+    await client.setCookies(cookies);
+  }
+
+  await client.executeSequence([
+    { type: 'navigate', url: `https://www.reddit.com/r/${subreddit}/submit` },
+    { type: 'waitForSelector', selector: '[name="title"]' },
+    { type: 'type', selector: '[name="title"]', text: title },
+    { type: 'waitForSelector', selector: '.public-DraftEditor-content' },
+    { type: 'click', selector: '.public-DraftEditor-content' },
+    { type: 'type', selector: '.public-DraftEditor-content', text: body },
+    { type: 'wait', ms: 2000 },
+    { type: 'screenshot' }
+  ]);
+
+  // 手動で確認・投稿
+  console.log('投稿内容を確認してください。OKなら手動で投稿ボタンをクリック。');
+
+  await client.close();
+}
+
+// 使用例
+postToReddit('test', 'Test Post Title', 'This is a test post body.');
+```
+
+### ログインフロー
+```javascript
+async function loginToReddit(client) {
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://www.reddit.com/login' },
+    { type: 'waitForSelector', selector: '#loginUsername' },
+    { type: 'type', selector: '#loginUsername', text: process.env.REDDIT_USERNAME },
+    { type: 'type', selector: '#loginPassword', text: process.env.REDDIT_PASSWORD },
+    { type: 'click', selector: 'button[type="submit"]' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存
+  const cookies = await client.getCookies();
+  fs.writeFileSync('reddit-cookies.json', JSON.stringify(cookies));
+}
 ```
 
 ---
