@@ -68,5 +68,30 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
     envVars.MOLTBOT_URL = env.MOLTBOT_URL || env.WORKER_URL;
   }
 
+  // Google AI / Gemini API
+  if (env.GOOGLE_AI_API_KEY) envVars.GOOGLE_AI_API_KEY = env.GOOGLE_AI_API_KEY;
+  if (env.GOOGLE_EMAIL) envVars.GOOGLE_EMAIL = env.GOOGLE_EMAIL;
+  if (env.GOOGLE_PASSWORD) envVars.GOOGLE_PASSWORD = env.GOOGLE_PASSWORD;
+  if (env.GOOGLE_APP_PASSWORD) envVars.GOOGLE_APP_PASSWORD = env.GOOGLE_APP_PASSWORD;
+  if (env.GOOGLE_SERVICE_ACCOUNT_KEY) envVars.GOOGLE_SERVICE_ACCOUNT_KEY = env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+  // X (Twitter) browser credentials
+  if (env.X_USERNAME) envVars.X_USERNAME = env.X_USERNAME;
+  if (env.X_PASSWORD) envVars.X_PASSWORD = env.X_PASSWORD;
+  // X API credentials (for container-side calls if needed)
+  if (env.X_API_KEY) envVars.X_API_KEY = env.X_API_KEY;
+  if (env.X_API_SECRET) envVars.X_API_SECRET = env.X_API_SECRET;
+  if (env.X_ACCESS_TOKEN) envVars.X_ACCESS_TOKEN = env.X_ACCESS_TOKEN;
+  if (env.X_ACCESS_TOKEN_SECRET) envVars.X_ACCESS_TOKEN_SECRET = env.X_ACCESS_TOKEN_SECRET;
+
+  // SNS platform credentials
+  if (env.NOTE_EMAIL) envVars.NOTE_EMAIL = env.NOTE_EMAIL;
+  if (env.NOTE_PASSWORD) envVars.NOTE_PASSWORD = env.NOTE_PASSWORD;
+  if (env.THREADS_USERNAME) envVars.THREADS_USERNAME = env.THREADS_USERNAME;
+  if (env.THREADS_PASSWORD) envVars.THREADS_PASSWORD = env.THREADS_PASSWORD;
+  if (env.COCONALA_EMAIL) envVars.COCONALA_EMAIL = env.COCONALA_EMAIL;
+  if (env.COCONALA_PASSWORD) envVars.COCONALA_PASSWORD = env.COCONALA_PASSWORD;
+  if (env.METAMASK_PASSWORD) envVars.METAMASK_PASSWORD = env.METAMASK_PASSWORD;
+
   return envVars;
 }

@@ -7,5 +7,16 @@
   "gateway": {
     "port": 18789,
     "mode": "local"
+  },
+  "tools": {
+    "exec": {
+      "security": "full"
+    },
+    "elevated": {
+      "enabled": true
+    }
+  },
+  "commands": {
+    "restart": true
   }
 }

@@ -27,10 +27,9 @@ RUN mkdir -p /root/.clawdbot \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-02-02-v53-public-browser-check
-# Force rebuild timestamp: 1770008400
+# Build cache bust: 2026-02-03-v62-env-vars-all
 COPY start-moltbot.sh /usr/local/bin/start-moltbot.sh
-RUN chmod +x /usr/local/bin/start-moltbot.sh
+RUN chmod +x /usr/local/bin/start-moltbot.sh && echo "Build: v62-env-vars-all $(date)"
 
 # Copy default configuration template
 COPY moltbot.json.template /root/.clawdbot-templates/moltbot.json.template

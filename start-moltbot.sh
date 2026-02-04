@@ -1,6 +1,6 @@
 #!/bin/bash
 # Startup script for Moltbot in Cloudflare Sandbox
-# Version: 2026-02-02-v55-ai-gateway-fix
+# Version: 2026-02-03-v57-env-vars-debug
 # This script:
 # 1. Restores config from R2 backup if available
 # 2. Configures moltbot from environment variables
@@ -135,10 +135,23 @@ fi
 # CHECK CRITICAL ENVIRONMENT VARIABLES
 # ============================================================
 echo "Checking environment variables..."
+echo "=== Core API Keys ==="
 echo "ANTHROPIC_API_KEY set: $([ -n \"$ANTHROPIC_API_KEY\" ] && echo 'YES (len='${#ANTHROPIC_API_KEY}')' || echo 'NO')"
 echo "OPENAI_API_KEY set: $([ -n \"$OPENAI_API_KEY\" ] && echo 'YES' || echo 'NO')"
+echo "GOOGLE_AI_API_KEY set: $([ -n \"$GOOGLE_AI_API_KEY\" ] && echo 'YES (len='${#GOOGLE_AI_API_KEY}')' || echo 'NO')"
+echo "=== Chat Channels ==="
 echo "DISCORD_BOT_TOKEN set: $([ -n \"$DISCORD_BOT_TOKEN\" ] && echo 'YES' || echo 'NO')"
+echo "=== Gateway/Worker ==="
 echo "CLAWDBOT_GATEWAY_TOKEN set: $([ -n \"$CLAWDBOT_GATEWAY_TOKEN\" ] && echo 'YES' || echo 'NO')"
+echo "WORKER_URL set: $([ -n \"$WORKER_URL\" ] && echo 'YES' || echo 'NO')"
+echo "MOLTBOT_URL set: $([ -n \"$MOLTBOT_URL\" ] && echo 'YES' || echo 'NO')"
+echo "CDP_SECRET set: $([ -n \"$CDP_SECRET\" ] && echo 'YES' || echo 'NO')"
+echo "=== X (Twitter) API ==="
+echo "X_API_KEY set: $([ -n \"$X_API_KEY\" ] && echo 'YES' || echo 'NO')"
+echo "X_API_SECRET set: $([ -n \"$X_API_SECRET\" ] && echo 'YES' || echo 'NO')"
+echo "X_ACCESS_TOKEN set: $([ -n \"$X_ACCESS_TOKEN\" ] && echo 'YES' || echo 'NO')"
+echo "X_ACCESS_TOKEN_SECRET set: $([ -n \"$X_ACCESS_TOKEN_SECRET\" ] && echo 'YES' || echo 'NO')"
+echo "X_USERNAME set: $([ -n \"$X_USERNAME\" ] && echo 'YES' || echo 'NO')"
 
 # ============================================================
 # UPDATE CONFIG FROM ENVIRONMENT VARIABLES
@@ -343,6 +356,19 @@ if (isOpenAI) {
     config.agents.defaults.models['anthropic/claude-sonnet-4-5-20250929'] = { alias: 'Sonnet 4.5' };
     config.agents.defaults.model.primary = 'anthropic/claude-sonnet-4-5-20250929';
 }
+
+// Tools configuration - disable exec approval for autonomous operation
+config.tools = config.tools || {};
+config.tools.exec = config.tools.exec || {};
+config.tools.exec.security = 'full';  // Skip all approval gates
+config.tools.elevated = config.tools.elevated || {};
+config.tools.elevated.enabled = true;
+console.log('Tools configured: exec.security=full (approvals disabled)');
+
+// Commands configuration - enable restart command
+config.commands = config.commands || {};
+config.commands.restart = true;
+console.log('Commands configured: restart=true');
 
 // Write updated config
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));

@@ -46,6 +46,23 @@ export interface MoltbotEnv {
   X_API_SECRET?: string; // Consumer Secret (API Secret Key)
   X_ACCESS_TOKEN?: string; // Access Token
   X_ACCESS_TOKEN_SECRET?: string; // Access Token Secret
+  // X (Twitter) browser credentials (for x-browser skill)
+  X_USERNAME?: string;
+  X_PASSWORD?: string;
+  // Google AI / Gemini API
+  GOOGLE_AI_API_KEY?: string; // Google AI API key for Gemini models
+  GOOGLE_EMAIL?: string;
+  GOOGLE_PASSWORD?: string;
+  GOOGLE_APP_PASSWORD?: string;
+  GOOGLE_SERVICE_ACCOUNT_KEY?: string;
+  // SNS platform credentials
+  NOTE_EMAIL?: string;
+  NOTE_PASSWORD?: string;
+  THREADS_USERNAME?: string;
+  THREADS_PASSWORD?: string;
+  COCONALA_EMAIL?: string;
+  COCONALA_PASSWORD?: string;
+  METAMASK_PASSWORD?: string;
 }
 
 /**

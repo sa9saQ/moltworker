@@ -150,17 +150,27 @@ app.route('/browser', browserApi);
 // Uses CDP_SECRET for authentication (same as browser API)
 app.route('/x', xApi);
 
-// Redirect /api/tweet and /api/thread to /x/* endpoints
-// (For compatibility with MoltBot that may call /api/tweet)
+// Forward /api/tweet and /api/thread to /x/* endpoints internally
+// (MoltBot CLI may call /api/tweet instead of /x/tweet)
 app.post('/api/tweet', async (c) => {
   const url = new URL(c.req.url);
   url.pathname = '/x/tweet';
-  return c.redirect(url.toString(), 307);
+  const newReq = new Request(url.toString(), {
+    method: 'POST',
+    headers: c.req.raw.headers,
+    body: c.req.raw.body,
+  });
+  return app.fetch(newReq, c.env, c.executionCtx);
 });
 app.post('/api/thread', async (c) => {
   const url = new URL(c.req.url);
   url.pathname = '/x/thread';
-  return c.redirect(url.toString(), 307);
+  const newReq = new Request(url.toString(), {
+    method: 'POST',
+    headers: c.req.raw.headers,
+    body: c.req.raw.body,
+  });
+  return app.fetch(newReq, c.env, c.executionCtx);
 });
 
 // =============================================================================
@@ -226,6 +236,8 @@ app.use('*', async (c, next) => {
     '/browser',     // Uses CDP_SECRET
     '/cdp',         // Uses CDP_SECRET
     '/x',           // Uses CDP_SECRET for X API
+    '/api/tweet',   // Redirect to /x/tweet (uses CDP_SECRET)
+    '/api/thread',  // Redirect to /x/thread (uses CDP_SECRET)
     '/sandbox-health', // Simple health check
     '/logo.png',
     '/logo-small.png',
