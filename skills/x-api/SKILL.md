@@ -1,107 +1,171 @@
 ---
 name: x-api
-description: Post to X (Twitter) using official API with OAuth 1.0a. Supports tweets, threads, media. Use when user says "X API", "tweet via API", "post to X".
+description: Post to X (Twitter) using official API with local OAuth 1.0a signing. No Cloudflare dependency. Supports tweets, threads.
 auto_trigger: false
 ---
 
-# X API 投稿スキル
+# X API 投稿スキル（ローカル版）
 
-X（旧Twitter）公式APIを使った投稿スキル。Workers APIエンドポイント経由。
+X（旧Twitter）公式APIを使った投稿スキル。ローカルでOAuth署名、Cloudflare不要。
 
 ## アーキテクチャ
 
 ```
-MoltBot → /x/tweet → Workers (OAuth署名) → X API
+旧: MoltBot → Workers (OAuth署名) → X API
+新: MoltBot → ローカル (OAuth署名) → X API 直接
 ```
 
-**重要**: OAuth認証はWorkers側で行われる。MoltBotはWorkersのAPIを呼ぶだけ。
+## 必要な環境変数
 
-## 必要な環境変数（Cloudflare Workers Secrets）
-
-```
-X_API_KEY           # Consumer Key (API Key)
-X_API_SECRET        # Consumer Secret (API Secret Key)
-X_ACCESS_TOKEN      # Access Token
-X_ACCESS_TOKEN_SECRET # Access Token Secret
-CDP_SECRET          # API認証用シークレット
+```bash
+export X_API_KEY="your-api-key"              # Consumer Key
+export X_API_SECRET="your-api-secret"        # Consumer Secret
+export X_ACCESS_TOKEN="your-access-token"    # Access Token
+export X_ACCESS_TOKEN_SECRET="your-secret"   # Access Token Secret
 ```
 
 ---
 
-## Workers APIエンドポイント
-
-### ステータス確認
-```
-GET /x/status
-```
+## CLI使用方法
 
 ### ツイート投稿
-```
-POST /x/tweet?secret={CDP_SECRET}
-Content-Type: application/json
 
-{
-  "text": "ツイート内容（最大280文字）",
-  "reply_to": "返信先ツイートID（オプション）",
-  "quote_tweet_id": "引用ツイートID（オプション）"
-}
+```bash
+node scripts/x-client.js tweet "Hello World!"
 ```
 
 ### スレッド投稿
-```
-POST /x/thread?secret={CDP_SECRET}
-Content-Type: application/json
 
-{
-  "tweets": ["1つ目のツイート", "2つ目のツイート", ...]
-}
+```bash
+node scripts/x-client.js thread "1つ目のツイート" "2つ目のツイート" "3つ目のツイート"
 ```
 
 ### ツイート削除
-```
-DELETE /x/tweet/{tweet_id}?secret={CDP_SECRET}
-```
 
----
-
-## MoltBotからの呼び出し方法
-
-### 1. テキスト投稿
-
-```javascript
-// MOLTBOT_URL と CDP_SECRET は環境変数から取得
-const response = await fetch(`${env.MOLTBOT_URL}/x/tweet?secret=${env.CDP_SECRET}`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ text: 'Hello World!' })
-});
-
-const result = await response.json();
-// { success: true, data: { id: "12345", text: "Hello World!" }, url: "https://x.com/i/status/12345" }
+```bash
+node scripts/x-client.js delete 1234567890
 ```
 
-### 2. スレッド投稿
+### 自分の情報取得
 
-```javascript
-const response = await fetch(`${env.MOLTBOT_URL}/x/thread?secret=${env.CDP_SECRET}`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    tweets: [
-      'AIツールを100個試した',
-      '本当に使えるのは5個',
-      'その5個を紹介します'
-    ]
-  })
-});
-
-const result = await response.json();
-// { success: true, data: [...], url: "https://x.com/i/status/12345", count: 3 }
+```bash
+node scripts/x-client.js me
 ```
 
 ---
 
-## API料金（従量課金）
+## プログラムから使用
+
+```javascript
+const { XClient } = require('./scripts/x-client');
+
+async function main() {
+  const client = new XClient();
+
+  // ツイート投稿
+  const result = await client.tweet('Hello World!');
+  console.log(result);
+  // { success: true, data: { id: "123..." }, url: "https://x.com/i/status/123..." }
+
+  // 返信ツイート
+  const reply = await client.tweet('This is a reply!', {
+    replyTo: '1234567890'
+  });
+
+  // 引用ツイート
+  const quote = await client.tweet('Great post!', {
+    quoteTweetId: '1234567890'
+  });
+
+  // スレッド投稿
+  const thread = await client.thread([
+    'AIツールを100個試した',
+    '本当に使えるのは5個',
+    'その5個を紹介します'
+  ]);
+  console.log(thread);
+  // { success: true, data: [...], url: "...", count: 3 }
+
+  // ツイート削除
+  await client.deleteTweet('1234567890');
+
+  // 自分の情報取得
+  const me = await client.getMe();
+  console.log(me);
+}
+
+main();
+```
+
+---
+
+## API メソッド
+
+| メソッド | 説明 |
+|---------|------|
+| `tweet(text, options)` | ツイート投稿 |
+| `thread(tweets)` | スレッド投稿 |
+| `deleteTweet(id)` | ツイート削除 |
+| `getTweet(id)` | ツイート取得 |
+| `getMe()` | 自分の情報取得 |
+
+### tweet オプション
+
+```javascript
+{
+  replyTo: '1234567890',       // 返信先ツイートID
+  quoteTweetId: '1234567890',  // 引用ツイートID
+  mediaIds: ['media_id_1']     // メディアID配列
+}
+```
+
+---
+
+## エラーハンドリング
+
+```javascript
+const result = await client.tweet('Hello!');
+
+if (!result.success) {
+  console.error('Failed:', result.errors);
+  // リトライロジック
+}
+```
+
+### よくあるエラー
+
+| コード | 意味 | 対処 |
+|--------|------|------|
+| 401 | 認証エラー | API キー確認 |
+| 403 | 権限不足 | アプリ権限確認（Read and Write必要） |
+| 429 | レート制限 | 15分待機して再試行 |
+| 400 | リクエスト不正 | パラメータ確認 |
+
+---
+
+## x-browser との使い分け
+
+| 項目 | x-api | x-browser |
+|------|-------|-----------|
+| **方式** | 公式API (OAuth 1.0a) | ブラウザ自動化 (Puppeteer) |
+| **コスト** | API利用料 | 無料 |
+| **信頼性** | 高い | UI変更で壊れる可能性 |
+| **制限** | API制限 | アカウント凍結リスク |
+| **機能** | 基本機能 | 全機能（DM, スペースなど） |
+| **推奨** | ビジネス自動化 | 実験・複雑な操作 |
+
+### 推奨用途
+
+```
+ビジネス・自動化 → x-api（安定性）
+実験・テスト → x-browser（無料）
+大量投稿 → x-api（レート管理しやすい）
+複雑な操作 → x-browser（全機能）
+```
+
+---
+
+## API料金目安
 
 ```
 投稿（POST）:
@@ -113,86 +177,60 @@ const result = await response.json();
 ├── ツイート取得: ~$0.005/回
 ├── ユーザー情報: ~$0.005/回
 └── メンション取得: ~$0.01/回
-
-月額上限設定推奨（予算管理）
 ```
 
 ---
 
-## x-browser との使い分け
+## セキュリティ
 
-| 項目 | x-api | x-browser |
-|------|-------|-----------|
-| **方式** | 公式API | ブラウザ自動化 |
-| **コスト** | 従量課金（~$0.01/回） | 無料 |
-| **信頼性** | 高い | UI変更で壊れる可能性 |
-| **制限** | API制限 | アカウント凍結リスク |
-| **機能** | 基本機能のみ | 全機能 |
-| **推奨用途** | 自動化、Bot | 手動サポート |
-
-### 推奨
+### 認証情報の取り扱い
 
 ```
-ビジネス用途 → x-api（信頼性重視）
-実験・テスト → x-browser（コスト0）
-大量投稿 → x-api（安定性）
-複雑な操作 → x-browser（全機能）
+禁止:
+├── 認証情報をログに出力
+├── 認証情報をコードにハードコード
+├── 認証情報をGitにコミット
+└── 認証情報を外部送信
+
+必須:
+├── 環境変数で管理
+├── .envファイルは.gitignoreに追加
+└── 署名は毎回新規生成
 ```
 
----
+### .env ファイル例
 
-## エンドポイント一覧
-
-### 投稿関連
-```
-POST /2/tweets         # ツイート投稿
-DELETE /2/tweets/:id   # ツイート削除
-POST /2/tweets/:id/retweets  # リツイート
-DELETE /2/tweets/:id/retweets  # リツイート取消
-```
-
-### メディア
-```
-POST /1.1/media/upload.json  # メディアアップロード
-```
-
-### 読み取り
-```
-GET /2/tweets/:id      # ツイート取得
-GET /2/users/me        # 自分の情報
-GET /2/users/:id/mentions  # メンション取得
+```bash
+# .env（.gitignoreに追加すること）
+X_API_KEY=your-api-key
+X_API_SECRET=your-api-secret
+X_ACCESS_TOKEN=your-access-token
+X_ACCESS_TOKEN_SECRET=your-access-token-secret
 ```
 
 ---
 
-## エラーハンドリング
+## 旧Cloudflare版との比較
 
-```javascript
-async function safeTweet(text) {
-  try {
-    const result = await postTweet(text);
+| 項目 | 旧 (Cloudflare) | 新 (Local) |
+|------|-----------------|------------|
+| OAuth署名 | Workers側 | ローカル |
+| エンドポイント | `/x/tweet` | 直接 `api.x.com` |
+| 環境変数 | Cloudflare Secrets | ローカル `.env` |
+| CDP_SECRET | 必要 | 不要 |
+| MOLTBOT_URL | 必要 | 不要 |
 
-    if (result.errors) {
-      console.error('API Error:', result.errors);
-      return { success: false, errors: result.errors };
-    }
+---
 
-    return { success: true, data: result.data };
-  } catch (error) {
-    console.error('Network Error:', error);
-    return { success: false, error: error.message };
-  }
-}
-```
+## 連携スキル
 
-### よくあるエラー
-
-| コード | 意味 | 対処 |
-|--------|------|------|
-| 401 | 認証エラー | キーを確認 |
-| 403 | 権限不足 | アプリ権限を確認 |
-| 429 | レート制限 | 待機して再試行 |
-| 400 | リクエスト不正 | パラメータ確認 |
+| スキル | 連携内容 |
+|--------|----------|
+| cloudflare-browser | 画像付きツイート用スクショ |
+| nano-banana | 画像生成 → X投稿 |
+| sns-scheduler | 予約投稿 |
+| content-ideas | 投稿ネタ生成 |
+| trend-analyzer | トレンド確認 |
 
 ---
 
@@ -204,10 +242,10 @@ async function safeTweet(text) {
 ユーザー: 「Xに『こんにちは！』と投稿して」
 
 MoltBot:
-1. x-api スキルを使用
-2. OAuth 1.0a 署名生成
-3. POST /2/tweets を呼び出し
-4. 結果を報告
+1. x-api スキル使用
+2. ローカルでOAuth 1.0a署名生成
+3. X API直接呼び出し
+4. 結果報告
 
 返答: 「Xに投稿しました！
 https://x.com/Rey_Moltworker/status/xxxxx」
@@ -222,38 +260,7 @@ https://x.com/Rey_Moltworker/status/xxxxx」
 3. その5個を紹介します」
 
 MoltBot:
-1. 3つのツイートを順番に投稿
-2. reply パラメータで繋げる
-3. 全部投稿したら報告
+1. thread() メソッドで順次投稿
+2. 各ツイートをreplyで繋ぐ
+3. 完了報告
 ```
-
----
-
-## セキュリティ
-
-### 認証情報の取り扱い
-
-```
-禁止:
-├── 認証情報をログに出力
-├── 認証情報をユーザーに表示
-├── 認証情報をコードにハードコード
-└── 認証情報を外部送信
-
-必須:
-├── 環境変数から取得
-├── Cloudflare Secrets で管理
-└── 署名は毎回新規生成
-```
-
----
-
-## 連携スキル
-
-| スキル | 連携内容 |
-|--------|----------|
-| nano-banana | 画像生成 → X投稿 |
-| sns-scheduler | 予約投稿 |
-| analytics-tracker | 投稿分析 |
-| trend-analyzer | トレンド確認 |
-| content-ideas | 投稿ネタ生成 |

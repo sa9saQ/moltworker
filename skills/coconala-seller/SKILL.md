@@ -1,106 +1,131 @@
 ---
 name: coconala-seller
-description: Automate Coconala sales - product listing, customer communication, delivery, and sales tracking. Uses HTTP Browser API for all operations.
+description: Automate Coconala sales - product listing, customer communication, delivery. Uses local Puppeteer browser automation.
 ---
 
-# ココナラ自動販売スキル
+# ココナラ自動販売スキル（ローカル版）
 
-ココナラでの商品販売を自動化するスキル。HTTP Browser APIを使用。
+ココナラでの商品販売を自動化するスキル。Puppeteerでローカル実行、Cloudflare不要。
 
 ## クイックスタート
 
+### 前提条件
+```bash
+# Puppeteerインストール（初回のみ）
+npm install puppeteer
+```
+
 ### 環境変数
 ```bash
-export MOLTBOT_URL="https://your-worker.workers.dev"
-export CDP_SECRET="your-secret"
+export COCONALA_EMAIL="your-email@example.com"
+export COCONALA_PASSWORD="your-password"
 ```
 
-### ログイン（HTTP API）
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://coconala.com/login",
-    "actions": [
-      {"type": "waitForSelector", "selector": "input[name=\"email\"]"},
-      {"type": "type", "selector": "input[name=\"email\"]", "text": "メールアドレス"},
-      {"type": "type", "selector": "input[name=\"password\"]", "text": "パスワード"},
-      {"type": "click", "selector": "button[type=\"submit\"]"},
-      {"type": "wait", "ms": 5000},
-      {"type": "screenshot"}
-    ]
-  }'
+### ログイン（Puppeteer）
+```javascript
+const { createClient } = require('../cloudflare-browser/scripts/puppeteer-client');
+
+async function login() {
+  const client = await createClient({ headless: true });
+
+  await client.executeSequence([
+    { type: 'navigate', url: 'https://coconala.com/login' },
+    { type: 'waitForSelector', selector: 'input[name="email"]' },
+    { type: 'type', selector: 'input[name="email"]', text: process.env.COCONALA_EMAIL },
+    { type: 'type', selector: 'input[name="password"]', text: process.env.COCONALA_PASSWORD },
+    { type: 'click', selector: 'button[type="submit"]' },
+    { type: 'wait', ms: 5000 },
+    { type: 'screenshot' }
+  ]);
+
+  // Cookieを保存して次回以降のログインを省略
+  const cookies = await client.getCookies();
+  require('fs').writeFileSync('coconala-cookies.json', JSON.stringify(cookies));
+
+  return client;
+}
 ```
 
-### メッセージ確認（HTTP API）
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://coconala.com/mypage/talk_rooms",
-    "actions": [
-      {"type": "wait", "ms": 3000},
-      {"type": "screenshot"},
-      {"type": "execute", "script": "() => Array.from(document.querySelectorAll(\".talk-room-item\")).map(el => el.textContent)"}
-    ]
-  }'
+### メッセージ確認（Puppeteer）
+```javascript
+async function checkMessages(client) {
+  const result = await client.executeSequence([
+    { type: 'navigate', url: 'https://coconala.com/mypage/talk_rooms' },
+    { type: 'wait', ms: 3000 },
+    { type: 'screenshot' },
+    { type: 'execute', script: '() => Array.from(document.querySelectorAll(".talk-room-item")).map(el => el.textContent)' }
+  ]);
+
+  return result;
+}
 ```
 
 ---
 
-## HTTP API操作パターン
+## Puppeteer操作パターン
 
 ### 1. ログイン
-```json
-{
-  "url": "https://coconala.com/login",
-  "actions": [
-    {"type": "waitForSelector", "selector": "input[name=\"email\"]"},
-    {"type": "type", "selector": "input[name=\"email\"]", "text": "メールアドレス"},
-    {"type": "type", "selector": "input[name=\"password\"]", "text": "パスワード"},
-    {"type": "click", "selector": "button[type=\"submit\"]"},
-    {"type": "wait", "ms": 5000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://coconala.com/login' },
+  { type: 'waitForSelector', selector: 'input[name="email"]' },
+  { type: 'type', selector: 'input[name="email"]', text: 'メールアドレス' },
+  { type: 'type', selector: 'input[name="password"]', text: 'パスワード' },
+  { type: 'click', selector: 'button[type="submit"]' },
+  { type: 'wait', ms: 5000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 2. トークルーム確認
-```json
-{
-  "url": "https://coconala.com/mypage/talk_rooms",
-  "actions": [
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"},
-    {"type": "execute", "script": "() => document.body.innerText"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://coconala.com/mypage/talk_rooms' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' },
+  { type: 'execute', script: '() => document.body.innerText' }
+]);
 ```
 
 ### 3. メッセージ送信
-```json
-{
-  "url": "https://coconala.com/mypage/talk_rooms/12345",
-  "actions": [
-    {"type": "waitForSelector", "selector": "textarea"},
-    {"type": "type", "selector": "textarea", "text": "メッセージ内容"},
-    {"type": "click", "selector": "button[type=\"submit\"]"},
-    {"type": "wait", "ms": 2000},
-    {"type": "screenshot"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://coconala.com/mypage/talk_rooms/12345' },
+  { type: 'waitForSelector', selector: 'textarea' },
+  { type: 'type', selector: 'textarea', text: 'メッセージ内容' },
+  { type: 'click', selector: 'button[type="submit"]' },
+  { type: 'wait', ms: 2000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### 4. 売上確認
-```json
-{
-  "url": "https://coconala.com/mypage/sales",
-  "actions": [
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"},
-    {"type": "execute", "script": "() => document.querySelector('.total-sales')?.textContent"}
-  ]
-}
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://coconala.com/mypage/sales' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' },
+  { type: 'execute', script: '() => document.querySelector(".total-sales")?.textContent' }
+]);
+```
+
+---
+
+## Cookie/セッション管理
+
+ログイン状態を維持するには：
+
+```javascript
+const fs = require('fs');
+
+// ログイン後にCookieを保存
+const cookies = await client.getCookies();
+fs.writeFileSync('coconala-cookies.json', JSON.stringify(cookies));
+
+// 次回起動時にCookieを復元（ログイン不要に）
+const savedCookies = JSON.parse(fs.readFileSync('coconala-cookies.json'));
+await client.setCookies(savedCookies);
+await client.navigate('https://coconala.com/mypage');
 ```
 
 ---

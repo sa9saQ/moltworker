@@ -1,391 +1,283 @@
 ---
 name: cloudflare-browser
-description: Control headless Chrome via Cloudflare Browser Rendering HTTP API. Use for screenshots, page navigation, form filling, and browser automation in Cloudflare Workers environment.
+description: Control headless Chrome via Puppeteer for local execution. Screenshots, navigation, form filling, browser automation without Cloudflare dependency.
 ---
 
-# Cloudflare Browser Rendering (HTTP API)
+# Local Browser Automation (Puppeteer)
 
-HTTP経由でヘッドレスブラウザを操作するスキル。WebSocket CDPの代わりにHTTP APIを使用。
+ローカルPCでヘッドレスブラウザを操作するスキル。Cloudflare不要。
 
 ## 前提条件
 
-- `CDP_SECRET` 環境変数が設定済み
-- Worker URL（例: `https://your-worker.workers.dev`）
+```bash
+# Puppeteerインストール（初回のみ）
+npm install puppeteer
 
-## API エンドポイント
+# または pnpm
+pnpm add puppeteer
+```
 
-すべてのエンドポイントは `?secret=<CDP_SECRET>` クエリパラメータが必要。
+## スクリプト一覧
 
-### 基本API
-
-| エンドポイント | メソッド | 用途 |
-|---------------|---------|------|
-| `/browser/test` | GET | ブラウザ動作確認 |
-| `/browser/screenshot` | POST | スクリーンショット取得 |
-| `/browser/navigate` | POST | ページ遷移＋コンテンツ取得 |
-| `/browser/execute` | POST | JavaScript実行 |
-| `/browser/form` | POST | フォーム入力・送信 |
-| `/browser/click` | POST | 要素クリック |
-| `/browser/sequence` | POST | 複数アクションの連続実行 |
+| スクリプト | 用途 |
+|-----------|------|
+| `puppeteer-client.js` | 再利用可能なクライアントライブラリ |
+| `screenshot-local.js` | スクリーンショット取得 |
+| `video-local.js` | 動画キャプチャ（ffmpeg必要） |
 
 ---
 
 ## 使用方法
 
-### 環境変数
+### スクリーンショット
+
 ```bash
-export MOLTBOT_URL="https://your-worker.workers.dev"
-export CDP_SECRET="your-secret"
+# 基本
+node scripts/screenshot-local.js https://example.com output.png
+
+# フルページ
+node scripts/screenshot-local.js https://example.com output.png --full-page
+
+# モバイル表示
+node scripts/screenshot-local.js https://example.com output.png --mobile
+
+# JPEG形式
+node scripts/screenshot-local.js https://example.com output.jpg --jpeg
 ```
 
-### curlでの呼び出し例
+### 動画キャプチャ
 
-#### スクリーンショット
 ```bash
-curl -X POST "${MOLTBOT_URL}/browser/screenshot?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "viewport": {"width": 1280, "height": 720},
-    "fullPage": false,
-    "format": "png"
-  }'
+# 複数URL
+node scripts/video-local.js "https://example.com,https://google.com" output.mp4
+
+# スクロール付き
+node scripts/video-local.js "https://example.com" output.mp4 --scroll --fps 15
 ```
 
-#### ページナビゲーション＋テキスト取得
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/navigate?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "extractText": true,
-    "extractHtml": false
-  }'
-```
+### プログラムから使用
 
-#### フォーム入力・送信
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/form?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com/login",
-    "fields": [
-      {"selector": "#email", "value": "user@example.com"},
-      {"selector": "#password", "value": "password123"}
-    ],
-    "submit": "#login-button",
-    "screenshotAfter": true
-  }'
-```
+```javascript
+const { createClient } = require('./scripts/puppeteer-client');
 
-#### 要素クリック
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/click?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "selector": "button.submit",
-    "waitAfter": 2000,
-    "screenshotAfter": true
-  }'
-```
+async function main() {
+  const client = await createClient({ headless: true });
 
-#### 複数アクションの連続実行（sequence）
-```bash
-curl -X POST "${MOLTBOT_URL}/browser/sequence?secret=${CDP_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://x.com",
-    "actions": [
-      {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
-      {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "Hello World!"},
-      {"type": "wait", "ms": 1000},
-      {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
-      {"type": "wait", "ms": 3000},
-      {"type": "screenshot"}
-    ]
-  }'
+  // ページ遷移
+  await client.navigate('https://example.com');
+  console.log('Title:', await client.getTitle());
+
+  // スクリーンショット
+  const screenshot = await client.screenshot('png');
+  require('fs').writeFileSync('screenshot.png', screenshot);
+
+  // クリック
+  await client.click('button.submit');
+
+  // テキスト入力
+  await client.type('#email', 'user@example.com');
+
+  // シーケンス実行
+  const result = await client.executeSequence([
+    { type: 'navigate', url: 'https://x.com' },
+    { type: 'waitForSelector', selector: '[data-testid="tweetTextarea_0"]' },
+    { type: 'type', selector: '[data-testid="tweetTextarea_0"]', text: 'Hello!' },
+    { type: 'wait', ms: 1000 },
+    { type: 'screenshot' }
+  ]);
+
+  await client.close();
+}
+
+main();
 ```
 
 ---
 
-## API詳細
+## API リファレンス
 
-### POST /browser/screenshot
+### createClient(options)
 
-URLのスクリーンショットを取得。
-
-**リクエスト:**
-```json
-{
-  "url": "https://example.com",      // 必須
-  "viewport": {                       // オプション（デフォルト: 1280x720）
-    "width": 1280,
-    "height": 720
-  },
-  "fullPage": false,                  // オプション: ページ全体をキャプチャ
-  "format": "png",                    // オプション: png or jpeg
-  "quality": 80,                      // オプション: jpeg品質 (1-100)
-  "waitMs": 2000                      // オプション: レンダリング待機時間
-}
+```javascript
+const client = await createClient({
+  headless: true,          // ヘッドレスモード（デフォルト: true）
+  timeout: 60000,          // タイムアウト（ms）
+  viewport: { width: 1280, height: 800 }
+});
 ```
 
-**レスポンス:**
-```json
-{
-  "ok": true,
-  "data": "base64エンコードされた画像",
-  "url": "https://example.com/",
-  "title": "Example Domain"
-}
-```
+### client メソッド
 
-### POST /browser/navigate
+| メソッド | 説明 |
+|---------|------|
+| `navigate(url, waitMs)` | URLに遷移 |
+| `screenshot(format, options)` | スクリーンショット取得 |
+| `click(selector)` | 要素クリック |
+| `type(selector, text, options)` | テキスト入力 |
+| `waitForSelector(selector, timeout)` | 要素待機 |
+| `wait(ms)` | 指定時間待機 |
+| `scroll(y)` | スクロール |
+| `evaluate(expression)` | JavaScript実行 |
+| `getHTML()` | HTML取得 |
+| `getText()` | テキスト取得 |
+| `getTitle()` | タイトル取得 |
+| `getURL()` | URL取得 |
+| `setCookies(cookies)` | Cookie設定 |
+| `getCookies()` | Cookie取得 |
+| `executeSequence(actions)` | 複数アクション実行 |
+| `close()` | ブラウザ終了 |
 
-ページ遷移してコンテンツを取得。
+---
 
-**リクエスト:**
-```json
-{
-  "url": "https://example.com",       // 必須
-  "waitFor": "#main-content",         // オプション: 待機するセレクタ
-  "extractText": true,                // オプション: テキスト抽出
-  "extractHtml": false,               // オプション: HTML抽出
-  "waitMs": 2000                      // オプション: 追加待機時間
-}
-```
+## シーケンスアクション
 
-**レスポンス:**
-```json
-{
-  "ok": true,
-  "url": "https://example.com/",
-  "title": "Example Domain",
-  "text": "ページのテキスト内容",
-  "html": "<html>...</html>"
-}
-```
+`executeSequence()` で使用可能なアクション：
 
-### POST /browser/execute
-
-ページ上でJavaScriptを実行。
-
-**リクエスト:**
-```json
-{
-  "url": "https://example.com",       // 必須
-  "script": "() => document.title",   // 必須: 実行するスクリプト
-  "args": [],                         // オプション: スクリプトへの引数
-  "waitMs": 1000                      // オプション: 実行前待機
-}
-```
-
-**レスポンス:**
-```json
-{
-  "ok": true,
-  "url": "https://example.com/",
-  "title": "Example Domain",
-  "result": "スクリプトの戻り値"
-}
-```
-
-### POST /browser/form
-
-フォーム入力と送信。
-
-**リクエスト:**
-```json
-{
-  "url": "https://example.com/login", // 必須
-  "fields": [                         // 必須: 入力フィールド
-    {"selector": "#email", "value": "user@example.com"},
-    {"selector": "#password", "value": "secret"}
-  ],
-  "submit": "#login-button",          // オプション: 送信ボタン
-  "waitAfterSubmit": 3000,            // オプション: 送信後待機
-  "screenshotAfter": true             // オプション: 送信後スクリーンショット
-}
-```
-
-### POST /browser/click
-
-要素をクリック。
-
-**リクエスト:**
-```json
-{
-  "url": "https://example.com",       // 必須
-  "selector": "button.submit",        // 必須: クリック対象
-  "waitAfter": 2000,                  // オプション: クリック後待機
-  "screenshotAfter": true             // オプション: クリック後スクリーンショット
-}
-```
-
-### POST /browser/sequence
-
-複数アクションを連続実行。SNS投稿など複雑な操作に最適。
-
-**リクエスト:**
-```json
-{
-  "url": "https://example.com",       // 必須: 開始URL
-  "actions": [                        // 必須: アクションリスト
-    {"type": "navigate", "url": "https://..."},
-    {"type": "click", "selector": "..."},
-    {"type": "type", "selector": "...", "text": "..."},
-    {"type": "wait", "ms": 1000},
-    {"type": "waitForSelector", "selector": "..."},
-    {"type": "screenshot"},
-    {"type": "execute", "script": "..."}
-  ],
-  "viewport": {"width": 1280, "height": 720}
-}
-```
-
-**アクションタイプ:**
 | type | パラメータ | 説明 |
 |------|-----------|------|
-| navigate | url | 別URLに遷移 |
-| click | selector | 要素をクリック |
-| type | selector, text | テキスト入力 |
+| navigate | url, waitMs | 別URLに遷移 |
+| click | selector | 要素クリック |
+| type | selector, text, clear, delay | テキスト入力 |
 | wait | ms | 指定ミリ秒待機 |
-| waitForSelector | selector | 要素が表示されるまで待機 |
-| screenshot | - | スクリーンショット取得 |
+| waitForSelector | selector, timeout | 要素表示まで待機 |
+| screenshot | format | スクリーンショット |
 | execute | script | JavaScript実行 |
-
-**レスポンス:**
-```json
-{
-  "ok": true,
-  "url": "最終URL",
-  "title": "最終ページタイトル",
-  "results": [
-    {"action": "click:#btn", "result": "ok"},
-    {"action": "type:#input", "result": "ok"},
-    {"action": "screenshot", "result": "screenshot_0"}
-  ],
-  "screenshots": ["base64画像1", "base64画像2"]
-}
-```
+| scroll | y | スクロール |
 
 ---
 
 ## SNS投稿パターン
 
 ### X(Twitter)投稿
-```json
-{
-  "url": "https://x.com/compose/tweet",
-  "actions": [
-    {"type": "waitForSelector", "selector": "[data-testid=\"tweetTextarea_0\"]"},
-    {"type": "type", "selector": "[data-testid=\"tweetTextarea_0\"]", "text": "投稿内容"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"tweetButton\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://x.com/compose/tweet' },
+  { type: 'waitForSelector', selector: '[data-testid="tweetTextarea_0"]' },
+  { type: 'type', selector: '[data-testid="tweetTextarea_0"]', text: '投稿内容' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="tweetButton"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### Threads投稿
-```json
-{
-  "url": "https://threads.net",
-  "actions": [
-    {"type": "click", "selector": "[aria-label=\"New post\"]"},
-    {"type": "waitForSelector", "selector": "[data-contents=\"true\"]"},
-    {"type": "type", "selector": "[data-contents=\"true\"]", "text": "投稿内容"},
-    {"type": "wait", "ms": 1000},
-    {"type": "click", "selector": "[data-testid=\"post-button\"]"},
-    {"type": "wait", "ms": 3000},
-    {"type": "screenshot"}
-  ]
-}
+
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://threads.net' },
+  { type: 'click', selector: '[aria-label="New post"]' },
+  { type: 'waitForSelector', selector: '[data-contents="true"]' },
+  { type: 'type', selector: '[data-contents="true"]', text: '投稿内容' },
+  { type: 'wait', ms: 1000 },
+  { type: 'click', selector: '[data-testid="post-button"]' },
+  { type: 'wait', ms: 3000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### Coconalaログイン
-```json
-{
-  "url": "https://coconala.com/login",
-  "actions": [
-    {"type": "type", "selector": "#email", "text": "メールアドレス"},
-    {"type": "type", "selector": "#password", "text": "パスワード"},
-    {"type": "click", "selector": "button[type=\"submit\"]"},
-    {"type": "wait", "ms": 5000},
-    {"type": "screenshot"}
-  ]
-}
+
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://coconala.com/login' },
+  { type: 'type', selector: '#email', text: 'メールアドレス' },
+  { type: 'type', selector: '#password', text: 'パスワード' },
+  { type: 'click', selector: 'button[type="submit"]' },
+  { type: 'wait', ms: 5000 },
+  { type: 'screenshot' }
+]);
 ```
 
 ### note.com投稿
-```json
-{
-  "url": "https://note.com/new",
-  "actions": [
-    {"type": "waitForSelector", "selector": ".editor"},
-    {"type": "type", "selector": ".title-input", "text": "記事タイトル"},
-    {"type": "type", "selector": ".editor", "text": "記事本文..."},
-    {"type": "screenshot"}
-  ]
-}
+
+```javascript
+await client.executeSequence([
+  { type: 'navigate', url: 'https://note.com/new' },
+  { type: 'waitForSelector', selector: '.editor' },
+  { type: 'type', selector: '.title-input', text: '記事タイトル' },
+  { type: 'type', selector: '.editor', text: '記事本文...' },
+  { type: 'screenshot' }
+]);
 ```
 
 ---
 
-## エラーハンドリング
+## Cookie/セッション管理
 
-### よくあるエラー
-| エラー | 原因 | 対処 |
-|--------|------|------|
-| 401 Unauthorized | CDP_SECRET不一致 | シークレット確認 |
-| selector not found | セレクタが存在しない | セレクタ更新 |
-| timeout | ページ読み込みが遅い | waitMs増加 |
-| navigation failed | URLが無効 | URL確認 |
+ログイン状態を維持するには、Cookieを保存・復元：
 
-### リトライ戦略
+```javascript
+const fs = require('fs');
+
+// ログイン後にCookieを保存
+const cookies = await client.getCookies();
+fs.writeFileSync('cookies.json', JSON.stringify(cookies));
+
+// 次回起動時にCookieを復元
+const savedCookies = JSON.parse(fs.readFileSync('cookies.json'));
+await client.setCookies(savedCookies);
+await client.navigate('https://example.com/dashboard');
 ```
-1回目失敗 → 5秒待機 → リトライ
-2回目失敗 → 15秒待機 → リトライ
-3回目失敗 → エラー報告
-```
-
----
-
-## セキュリティ注意事項
-
-- CDP_SECRETは絶対に公開しない
-- ログインCookieは自動管理されない（毎回ログイン or セッション管理が必要）
-- 過度な自動化はアカウント凍結リスクあり
-- 投稿間隔は最低30分空ける（SNS系）
-
----
-
-## 他スキルとの連携
-
-| スキル | 連携方法 |
-|--------|---------|
-| x-browser | sequence APIでX投稿 |
-| threads-poster | sequence APIでThreads投稿 |
-| coconala-seller | form/sequence APIで商品管理 |
-| note-publisher | sequence APIで記事投稿 |
-| nano-banana | 画像生成後、screenshot APIで確認 |
 
 ---
 
 ## トラブルシューティング
 
 ### ブラウザが起動しない
+
 ```bash
-# テストエンドポイントで確認
-curl "${MOLTBOT_URL}/browser/test?secret=${CDP_SECRET}"
+# Chromiumの依存関係インストール（Linux）
+sudo apt install -y libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 \
+  libxi6 libxtst6 libnss3 libcups2 libxss1 libxrandr2 libasound2 \
+  libpangocairo-1.0-0 libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0
 ```
 
 ### セレクタが見つからない
-1. 手動でサイトを開いてセレクタを確認
-2. DevToolsでdata-testid属性を探す
-3. 待機時間を増やす（waitForSelector使用）
 
-### ログインが維持されない
-- HTTPリクエストごとに新しいブラウザセッションが作成される
-- ログインが必要な操作は sequence で一連の流れとして実行
+1. `--headless false` で可視化して確認
+2. `waitForSelector` で待機時間を増やす
+3. DevToolsでセレクタを確認
+
+### メモリ不足
+
+```javascript
+// 複数ページ処理時はページを閉じる
+await client.page.close();
+const newPage = await client.browser.newPage();
+```
+
+---
+
+## 旧Cloudflare版との互換性
+
+| 旧 (Cloudflare) | 新 (Local) |
+|-----------------|------------|
+| `CDP_SECRET` 環境変数 | 不要 |
+| `WORKER_URL` 環境変数 | 不要 |
+| `POST /browser/screenshot` | `client.screenshot()` |
+| `POST /browser/sequence` | `client.executeSequence()` |
+| WebSocket CDP | Puppeteer直接制御 |
+
+---
+
+## 他スキルとの連携
+
+| スキル | 使用方法 |
+|--------|---------|
+| x-browser | executeSequenceでX投稿 |
+| threads-poster | executeSequenceでThreads投稿 |
+| coconala-seller | フォーム操作で商品管理 |
+| note-publisher | executeSequenceで記事投稿 |
+| instagram-poster | executeSequenceでInstagram投稿 |
+| tiktok-poster | executeSequenceでTikTok投稿 |
+
+---
+
+## セキュリティ注意事項
+
+- Cookieファイルは `.gitignore` に追加
+- パスワードはハードコードしない（環境変数使用）
+- 過度な自動化はアカウント凍結リスクあり
+- 投稿間隔は最低30分空ける（SNS系）
